@@ -1,0 +1,14 @@
+* text=auto
+*.js text eol=lf
+*.mjs text eol=lf
+*.ts text eol=lf
+*.svelte text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.ps1 text eol=lf
+*.bat text eol=crlf
+# Preserve third-party license text verbatim.
+LICENSE -whitespace
+THIRD-PARTY-NOTICES.txt -whitespace
