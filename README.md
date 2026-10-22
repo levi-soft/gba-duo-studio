@@ -25,7 +25,13 @@ Read the complete user guide in [English](docs/USER-GUIDE.md) or [Tiếng Việt
 
 The interface defaults to English. Select **Tiếng Việt** in the top menu to switch; the browser remembers your choice. New project templates follow that choice, while existing project text stays unchanged.
 
-## Tools
+## Works with GBA Duo Plus
+
+[GBA Duo Plus](https://github.com/levi-soft/gba-duo-plus) is our companion-enabled Android emulator fork. Studio **supports its optional Studio Connection** for read-only live RAM inspection and previewing the assigned companion's runtime data over USB/ADB. Download [Plus 0.1.6](https://github.com/levi-soft/gba-duo-plus/releases/tag/plus-v0.1.6), enable Studio Connection inside a game, then follow the [connection guide](docs/USER-GUIDE.md#connect-a-handheld-for-read-only-ram-tools).
+
+The workflow is **design in Studio → export Pack ZIP → import/assign in Plus → test on the handheld**. Native-format packs can also target compatible official GBA Duo versions; Plus is needed only for features that require its host support, such as this live bridge.
+
+## Authoring tools
 
 - Scene hierarchy, component palette, drag/drop, Inspector, assets, undo and redo.
 - Custom canvas dimensions, visual styles, bindings, conditional classes and navigation.

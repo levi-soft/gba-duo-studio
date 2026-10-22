@@ -24,7 +24,13 @@ Mở địa chỉ Vite hiển thị, thường là `http://127.0.0.1:5173`. Trê
 
 Đọc [hướng dẫn đầy đủ bằng tiếng Việt](docs/USER-GUIDE.vi.md) hoặc [English user guide](docs/USER-GUIDE.md). Tài liệu và giao diện mặc định là tiếng Anh; có thể chọn Tiếng Việt trên thanh menu.
 
-## Tạo companion
+## Hỗ trợ GBA Duo Plus
+
+[GBA Duo Plus](https://github.com/levi-soft/gba-duo-plus) là bản giả lập Android do chúng tôi phát triển tiếp từ GBA Duo. Studio **hỗ trợ Studio Connection của Plus** để đọc RAM và xem dữ liệu thật của companion đang được gán qua USB/ADB. Tải [Plus 0.1.6](https://github.com/levi-soft/gba-duo-plus/releases/tag/plus-v0.1.6), bật Studio Connection trong game rồi làm theo [hướng dẫn kết nối](docs/USER-GUIDE.vi.md#kết-nối-máy-chơi-game-để-đọc-ram).
+
+Quy trình: **thiết kế trong Studio → xuất Pack ZIP → nhập/gán trong Plus → kiểm tra trên thiết bị**. Pack theo định dạng gốc cũng có thể dùng với GBA Duo chính thức tương thích; chỉ tính năng cần hỗ trợ riêng của Plus, như bridge đọc RAM, mới yêu cầu Plus.
+
+## Thiết kế companion
 
 1. Tạo dự án từ mẫu trung lập; chọn kích thước màn hình thiết kế.
 2. Kéo thành phần vào Scene/canvas. Inspector có Content, Appearance và Behavior.
