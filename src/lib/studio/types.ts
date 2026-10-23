@@ -28,6 +28,7 @@ export interface FieldInfo {
   aliases?: string[];
   verified?: boolean;
 }
+export interface GraphicsSpec {tiles:string;palette:string;width:number;height:number;lz77:boolean}
 export type Scalar = string | number | boolean;
 export type ExpressionOp = 'choose' | 'eq' | 'ge' | 'and' | 'or' | 'first' | 'add' | 'sub' | 'mul' | 'max' | 'mod' | 'divfloor';
 export type Expression = Scalar | {field?: string; lookup?: Expression; table?: Record<string,Scalar>; op?: ExpressionOp; args?: Expression[]};
@@ -37,11 +38,12 @@ export interface Manifest {
   layout?: string; styles?: string[]; script?: string;
   values?: Record<string,MemorySpec>; studioComputed?: Record<string,Expression>; studioPulse?: PulseConfig;
   studioFieldInfo?: Record<string,FieldInfo>; studioProfileName?: string;
+  studioGraphics?: Record<string,GraphicsSpec>;
   [key: string]: unknown;
 }
 export interface Project { studioVersion?: number; layout: LayoutNode; css: string; files: Record<string,string>; data: DataValues; manifest: Manifest; width: number; height: number; editorGrid?: {visible:boolean;snap:boolean;size:number}; [key: string]: unknown }
 export interface RamRange {address:number;length:number}
 export interface EncodedRamRange extends RamRange {base64:string}
-export interface BridgeInfo {gameCode:string;deviceSerial?:string;crc32?:string;sessionId?:string;packId?:string;data?:DataValues;ranges?:EncodedRamRange[];[key:string]:unknown}
+export interface BridgeInfo {gameCode:string;deviceSerial?:string;crc32?:string;sessionId?:string;packId?:string;data?:DataValues;ranges?:EncodedRamRange[];bridgeVersion?:number;romSize?:number;capabilities?:{inspect?:boolean;maxRanges?:number;maxReadBytes?:number;maxRangeBytes?:number};[key:string]:unknown}
 export type BridgeSend = (command:string,params?:{ranges:RamRange[]})=>Promise<BridgeInfo>;
 export type AssetSource = string | ((path:string)=>string);

@@ -4,6 +4,9 @@ Mới: [profile dữ liệu và block chỉ số không cần viết code](docs/
 Nhập cấu hình RAM đã biết, chọn block để tạo thanh chỉ số và xem dữ liệu thật;
 công cụ dò RAM chỉ cần dùng khi game chưa có profile.
 
+Bản phát triển đã có [công cụ xem ROM/đồ họa](docs/ROM-GRAPHICS.vi.md) và block ảnh
+đọc tài nguyên từ ROM của người chơi, không cần đóng gói PNG của game.
+
 Công cụ thiết kế companion bằng kéo thả cho GBA Duo. Giao diện mặc định tiếng Anh, có thể đổi sang tiếng Việt. Đây là công cụ cộng đồng, không phải bản phát hành chính thức của GBA Duo.
 
 ## Chạy Studio

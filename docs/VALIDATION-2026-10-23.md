@@ -1,5 +1,33 @@
 # Numeric data-block workflow validation
 
+## ROM inspection and generated image blocks
+
+- Studio verification passes with 111 tests in 20 files, 0 Svelte errors/warnings
+  and a production build. Plus regression passes 312 JVM tests (golden-image
+  exclusions unchanged) and 155 native checks on the handheld.
+- A signed Plus update was installed in place after the user saved progress.
+  The running game advertised revision-2 inspection and its actual 16 MiB ROM.
+  Read the known icon tile/palette through the live bridge and compared the
+  decoded pixels with the exact local ROM; they matched byte-for-byte.
+- Browser: connected to the handheld, entered the known image source through
+  forms, previewed the decoded 16x16 image, added a bound image and confirmed its
+  canvas bitmap loaded. The project continued to report zero asset files.
+- The generated private pack was 3,304 bytes and contained only manifest,
+  layout, CSS, preview data and generated Lua. The user imported it on the
+  handheld; a screenshot confirmed the ROM-decoded icon on the companion screen.
+- Decoder tests cover nibble/tile ordering, transparent palette zero, native
+  color expansion, overlapping LZ77 references, malformed/truncated data,
+  old capabilities, session changes, ROM bounds, source equality, generated Lua
+  execution, safe failure, custom-script preservation and zero image embedding.
+- VRAM/OAM/palette inspection is available through bounded read-only regions.
+  Exported blocks currently require ROM tiles and palette, because native image
+  caching does not promise animation refresh from mutable VRAM.
+- Source addresses were reused from a private known adapter, not automatically
+  discovered. Runtime raw-icon decoding was hardware-verified; multipart portrait
+  assembly, tilemap authoring, pointer-driven art and universal no-code game
+  discovery remain outside this change. The saved-source refresh control has
+  static/type coverage; a full second-session manual refresh needs follow-up.
+
 ## Local natural-language profile search
 
 - The follow-up `npm run verify` passed with 105 tests in 19 files, 0 Svelte

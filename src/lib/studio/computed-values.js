@@ -1,5 +1,6 @@
 import {validateMemorySpecs,memoryHex,memoryTypes} from './memory-values.js';
 import {validatePulse,pulseLua} from './pulse-values.js';
+import {graphicsLua} from './rom-graphics.js';
 /** @typedef {import('./types.js').Scalar} Scalar */
 /** @typedef {import('./types.js').Expression} Expression */
 /** @typedef {import('./types.js').ExpressionOp} Op */
@@ -63,7 +64,7 @@ export function shouldGenerateScript(project){
     if(manifest.script!==computedScriptPath)return false;
     try{if(!atob(files[manifest.script]).startsWith(generatedMarker))return false;}catch{return false;}
   }
-  return (!manifest.script||manifest.script===computedScriptPath)&&Boolean(manifest.studioComputed||manifest.studioPulse);
+  return (!manifest.script||manifest.script===computedScriptPath)&&Boolean(manifest.studioComputed||manifest.studioPulse||Object.keys(manifest.studioGraphics??{}).length);
 }
 /** @param {Scalar} value */
 const luaLiteral=value=>{
@@ -109,6 +110,6 @@ export function computedLua(manifest){
     if(spec.shift)value='(('+value+' or 0) >> '+spec.shift+')';
     lines.push('v['+luaLiteral(key)+']='+value);
   }
-  lines.push(...expressionLines,...pulseLua(manifest.studioPulse,manifest.tickHz??4),'return v','end','');
+  lines.push(...expressionLines,...graphicsLua(manifest),...pulseLua(manifest.studioPulse,manifest.tickHz??4),'return v','end','');
   return lines.join('\n');
 }

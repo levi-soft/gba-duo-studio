@@ -12,7 +12,10 @@
   import {registerMemoryBlock} from '../lib/studio/memory-scan.js';
   import {parseDataProfile,applyDataProfile,parseFieldInfo,reconcileFieldInfo} from '../lib/studio/data-profiles.js';
   import {insertBoundBar} from '../lib/studio/data-blocks.js';
-  import type {BridgeInfo,MemoryType,FieldInfo} from '../lib/studio/types.js';
+  import {insertGraphicsBlock} from '../lib/studio/graphics-blocks.js';
+  import {sameGraphicsSource} from '../lib/studio/rom-graphics.js';
+  import {validateGameInfo} from '../lib/studio/memory-values.js';
+  import type {BridgeInfo,MemoryType,FieldInfo,GraphicsSpec} from '../lib/studio/types.js';
   import Preview from '../lib/studio/Preview.svelte';
   import TabFont from '../lib/studio/TabFont.svelte';
   import SkinEditor from '../lib/studio/SkinEditor.svelte';
@@ -42,8 +45,29 @@
 
   let project = $state<Project>(createProject());
   let selected = $state('');
+  let graphicsPreview=$state<Record<string,string>>({}),graphicsIdentity=$state(''),graphicsProject=$state('');
+  function observeGraphicsIdentity(info:BridgeInfo){
+    const identity=JSON.stringify([info.deviceSerial,info.sessionId,info.gameCode,info.crc32]);
+    if(graphicsIdentity&&graphicsIdentity!==identity)graphicsPreview={};graphicsIdentity=identity;
+  }
+  $effect(()=>{const target=JSON.stringify([project.layout.id,project.manifest.match]);if(graphicsProject!==target){graphicsProject=target;graphicsPreview={};graphicsIdentity='';}});
+  function addRomImage(key:string,spec:GraphicsSpec,info:BridgeInfo,preview:string){
+    const existing=project.manifest.studioGraphics?.[key];
+    if(existing){
+      validateGameInfo(project.manifest,info);
+      if(!sameGraphicsSource(existing,spec))throw Error('This image key has a different saved source. Choose a new block key.');
+      observeGraphicsIdentity(info);graphicsPreview={...graphicsPreview,[key]:preview};
+      const bound=walk(project.layout).find(ref=>ref.node.type==='image'&&ref.node.src==='$'+key);
+      if(bound)selected=bound.node.id;mode='2d';return;
+    }
+    const parent=container(project,selected);if(!parent)throw Error('Select a container in Scene first.');
+    const next=clone(project);const id=insertGraphicsBlock(next,parent.id,key,spec,info);validate(next);
+    edit(p=>{p.manifest=next.manifest;p.layout=next.layout;p.data=next.data;},'ROM image block created.');
+    graphicsProject=JSON.stringify([project.layout.id,project.manifest.match]);
+    observeGraphicsIdentity(info);graphicsPreview={...graphicsPreview,[key]:preview};selected=id;mode='2d';
+  }
   let liveEnabled=$state(false),liveData=$state<DataValues|null>(null),liveStatus=$state<{kind:string;message?:string}>({kind:'sample'});
-  const previewData=$derived(liveEnabled ? (liveData ? {...project.data,...liveData} : {}) : project.data);
+  const previewData=$derived({...((liveEnabled ? (liveData ? {...project.data,...liveData} : {}) : project.data)),...graphicsPreview});
   function setMemoryFields(values:Record<string,MemorySpec>){edit(p=>{p.manifest.studioFieldInfo=reconcileFieldInfo(p.manifest.values??{},values,p.manifest.studioFieldInfo);p.manifest.values=values;for(const name of Object.keys(values))if(!Object.hasOwn(p.data,name))Object.defineProperty(p.data,name,{value:0,enumerable:true,writable:true,configurable:true});},$uiText("Đã cập nhật trường RAM của dự án."));}
 
   function setFieldDescriptions(info:Record<string,FieldInfo>){
@@ -310,9 +334,9 @@
     <main class="center">
       <div class="scene-tab">{#if mainPages}<label class="page-switcher">{$uiText("Trang")}<select aria-label={$uiText("Trang đang thiết kế")} value={mainPages.initial} onchange={(e) => { const name = e.currentTarget.value; previewPage(name); const child=walk(project.layout).find((r) => r.node.type === "pages")?.node.pages?.find((p) => p.name === name)?.child;if(child)selected=child.id; }}>{#each mainPages.pages as page}<option value={page.name}>{page.name}</option>{/each}</select></label>{/if}<span>▧ {project.manifest.name}</span><small>{project.manifest.match?.gameCode?.join(', ') || $uiText("Chưa gắn game")}</small></div>
       <div class="canvas-toolbar"><button title={$uiText("Chọn thành phần")} class:chosen={mode === '2d'} onclick={() => mode = '2d'}>↖</button><button title={$uiText("Hoàn tác Ctrl+Z")} disabled={!history.length} onclick={undo}>↶</button><button title={$uiText("Làm lại Ctrl+Shift+Z")} disabled={!future.length} onclick={redo}>↷</button><span class="divider"></span><label class="zoom"><input aria-label={$uiText("Thu phóng")} type="range" min="0.05" max="1.5" step="0.01" bind:value={zoom} />{Math.round(zoom * 100)}%</label><button title={$uiText("Vừa vùng thiết kế")} onclick={fitCanvas}>{$uiText("Vừa khung")}</button><button class:chosen={grid.visible} aria-pressed={grid.visible} title={$uiText("Hiện lưới trên bàn thiết kế")} onclick={() => setGrid("visible", !grid.visible)}>{$uiText("▦ Lưới")}</button><button class:chosen={grid.snap} aria-pressed={grid.snap} title={$uiText("Bắt dính theo lưới; giữ Alt để tạm bỏ")} onclick={() => setGrid("snap", !grid.snap)}>{$uiText("⌗ Bắt dính")}</button><label class="grid-step">{$uiText("Bước (px)")}<input aria-label={$uiText("Bước lưới (pixel)")} type="number" min="1" max="512" value={grid.size} onchange={(e) => setGrid("size", Number(e.currentTarget.value))} /></label><span class="spacer"></span><button title={$uiText("Đổi kích thước màn hình")} onclick={() => showSettings = true}>{project.width} {$uiText("×")} {project.height} ⚙</button></div>
-      <LiveMemoryBar manifest={project.manifest} projectId={project.layout.id} enabled={liveEnabled} onenabled={(value)=>liveEnabled=value} ondata={(value)=>liveData=value} onstatus={(value)=>liveStatus=value} />
+      <LiveMemoryBar manifest={project.manifest} projectId={project.layout.id} enabled={liveEnabled} onenabled={(value)=>liveEnabled=value} ondata={(value)=>liveData=value} onstatus={(value)=>{liveStatus=value;if(value.info)observeGraphicsIdentity(value.info);}} />
       {#if mode === 'ram'}
-        <RamInspector manifest={project.manifest} onsave={saveMemoryBlock} onbar={addMemoryBar} onprofile={importDataProfile} />
+        <RamInspector manifest={project.manifest} onsave={saveMemoryBlock} onbar={addMemoryBar} onprofile={importDataProfile} onimage={addRomImage} onidentity={observeGraphicsIdentity} />
       {:else if mode === 'data'}
         <div class="data-workspace"><div class="data-title"><h2>{$uiText("Dữ liệu & giao diện")}</h2><div><button class:chosen={dataMode === "form"} onclick={() => dataMode = "form"}>{$uiText("Biểu mẫu")}</button><button class:chosen={dataMode === "code"} onclick={() => { openData(); dataMode = "code"; }}>JSON / CSS</button></div>{#if dataMode === "code"}<button class="primary" onclick={applyData}>{$uiText("Áp dụng thay đổi")}</button>{/if}</div><p>{$uiText("Dữ liệu mẫu dùng để thiết kế. Trường RAM và profile tạo được bằng biểu mẫu, không cần viết Lua; Studio đọc game qua GBA Duo Plus.")}</p>{#if dataMode === "form"}<MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><FieldDescriptions manifest={project.manifest} onchange={setFieldDescriptions} /><DataEditor value={project.data} onchange={changeData} /><details><summary>{$uiText("Bảng màu & biến giao diện (")}{themeVariables.length})</summary>{#each themeVariables as variable}<label>{variable.name}<input value={variable.value} onchange={(e) => setThemeVariable(variable.name,e.currentTarget.value)} /></label>{/each}</details>{:else}<label>{$uiText("Dữ liệu mẫu JSON")}<textarea spellcheck="false" bind:value={dataText} rows="13"></textarea></label><details><summary>{$uiText("CSS nâng cao")}</summary><textarea spellcheck="false" bind:value={cssText} rows="10"></textarea></details><details><summary>{$uiText("Cấu trúc layout JSON")}</summary><textarea spellcheck="false" bind:value={layoutText} rows="14"></textarea></details>{/if}</div>
       {:else}

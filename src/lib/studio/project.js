@@ -7,6 +7,7 @@ import { clone, walk, DEVICE_DENSITY } from './tree.js';
 import { compileDesign } from './compiler.js';
 import { validateMemorySpecs } from './memory-values.js';
 import {computedLua,computedScriptPath,shouldGenerateScript} from './computed-values.js';
+import {graphicsLua} from './rom-graphics.js';
 import {templateCopy} from './template-copy.js';
 import {PACK_LIMITS,safePackPath,boundedZipInput,readZipEntry,validatePreviewData} from './pack-safety.js';
 export { clone, walk, DEVICE_DENSITY } from './tree.js';
@@ -156,6 +157,8 @@ export function validate(project, forExport = false) {
 /** @param {Project} project */
 export async function exportPack(project) {
   validate(project, true);
+  graphicsLua(project.manifest);
+  if(Object.keys(project.manifest.studioGraphics??{}).length&&!shouldGenerateScript(project))throw Error('ROM image blocks require a Studio-generated script; custom Lua is preserved.');
   const compiled = compileDesign(project);
   const zip = new JSZip();
   for (const [path, data] of Object.entries(compiled.files)) if (path !== 'studio-design.json') zip.file(path, data, { base64: true });

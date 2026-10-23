@@ -31,4 +31,15 @@ describe('loopback read-only bridge API',()=>{
     for(const body of [null,[],{command:'connect',serial:['device']},{command:'connect',serial:'-s bad'}])expect((await POST(event(body))).status).toBe(503);
     expect(backend.connectThor).not.toHaveBeenCalled();
   });
+  it('allows bounded ROM and graphics inspection without expanding legacy RAM reads',async()=>{
+    const ranges=[{address:0x080000A0,length:16},{address:0x05000200,length:32},{address:0x06010000,length:128},{address:0x07000000,length:8}];
+    expect((await POST(event({command:'inspect',ranges}))).status).toBe(200);
+    expect(backend.thorRequest).toHaveBeenCalledWith('inspect',{ranges});
+    backend.thorRequest.mockClear();
+    for(const ranges of [[{address:0x04000000,length:4}],[{address:0x06017fff,length:2}],[{address:0x0a000000,length:1}],Array.from({length:65},()=>({address:0x08000000,length:1})),Array.from({length:17},()=>({address:0x08000000,length:4096}))]){
+      expect((await POST(event({command:'inspect',ranges}))).status).toBe(503);
+    }
+    expect((await POST(event({command:'read',ranges:[{address:0x08000000,length:1}]}))).status).toBe(503);
+    expect(backend.thorRequest).not.toHaveBeenCalled();
+  });
 });

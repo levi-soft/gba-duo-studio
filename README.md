@@ -6,6 +6,9 @@ New: [reusable data profiles and no-code numeric blocks](docs/DATA-BLOCKS.md).
 Import known RAM fields, create a bound progress bar, and preview live values;
 use read-only value scans when a game has no profile yet.
 
+Development builds also offer [live ROM/graphics inspection](docs/ROM-GRAPHICS.md)
+and image blocks that load art from the player's ROM instead of bundled PNGs.
+
 Maintained by [levi-soft](https://github.com/levi-soft). Studio creates packs for [GBA Duo by khumam](https://github.com/khumam/gba-duo); thank you to its author and contributors for the original companion format and emulator. Studio is a separate community authoring tool, not the official emulator or simulator.
 
 [Hướng dẫn tiếng Việt](README.vi.md) · Development beta **0.3.0-beta.1** · Community project, not an official GBA Duo release.
