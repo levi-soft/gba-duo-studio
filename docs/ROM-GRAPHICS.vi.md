@@ -40,3 +40,11 @@ cũ vẫn dùng được công cụ RAM, nhưng cần cập nhật Plus để xe
   khớp cấu hình và không cho thêm với nguồn đã đổi.
 - Bridge chỉ đọc, bật theo từng phiên qua ADB; không cho thực thi script gửi từ
   PC hoặc lấy thông tin tài khoản.
+
+## Duyệt ảnh liên tiếp
+
+Chọn kích thước ảnh không nén và palette, rồi bấm **Duyệt các ảnh liên tiếp**. Studio hiện tối đa 16 ảnh để bấm chọn nguồn và thêm block ảnh. Đổi cấu hình hoặc phiên game sẽ khóa kết quả cũ cho tới khi đọc lại. Công cụ dành cho bảng ảnh cùng kích thước, cùng palette; chưa tự tìm địa chỉ hay nhận dạng portrait.
+
+Dùng **Trang trước / Trang sau** để chuyển cả nhóm ảnh và **Bảng màu trước / Bảng màu sau** để dịch một palette 16 màu (32 byte). Sau khi chọn ảnh, chuyển trang vẫn tính từ đầu nhóm. Đọc lỗi sẽ giữ cấu hình và kết quả cũ. Công cụ chưa tự xác định palette nào thuộc về ảnh nào.
+
+**So sánh 8 bảng màu** đọc nguồn tile hiện tại và tám palette liên tiếp trong cùng một lần chụp. Bấm ảnh có màu đúng để chọn palette rồi thêm block ảnh. Hỗ trợ tile không nén và tile ROM nén LZ77; chưa tự nhận biết màu đúng. Nếu vượt cuối ROM hoặc vùng nhớ, thao tác sẽ báo lỗi. Ảnh xem trước không được lưu vào gói companion.

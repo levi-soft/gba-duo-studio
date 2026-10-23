@@ -49,3 +49,11 @@ enable the graphics viewer. Studio remains game-neutral.
   the last preview, marks it stale and prevents adding it under changed settings.
 - The bridge is read-only, session-opted-in and local to ADB. It does not read
   arbitrary PC files, expose account credentials or execute uploaded scripts.
+
+## Consecutive image browser
+
+Choose an uncompressed image size and palette, then select **Browse consecutive images**. Studio reads up to 16 images (at most 256 pixels high in the combined read) and displays selectable thumbnails. Click a thumbnail to select its exact source, then add a bound image as usual. Settings or session changes disable old results until refreshed. This assumes consecutive equal-size images with one shared palette; it does not discover addresses or recognize portraits automatically.
+
+Use **Previous page** / **Next page** to move by an entire batch, and **Previous palette** / **Next palette** to move by one 32-byte, 16-color palette. Navigation uses the batch start even after selecting a thumbnail. Failed reads preserve settings and prior results. These controls browse raw data; they do not identify which palette belongs to an image.
+
+**Compare 8 palettes** reads the current tile source and eight consecutive palettes in one inspection response. Select a thumbnail to use that palette and preview when adding the image block. Both compressed ROM tiles and uncompressed tiles are supported. No color recognition is implied; if the source is near the memory-region or ROM end, the comparison is rejected rather than reading beyond it. Preview pixels remain transient.

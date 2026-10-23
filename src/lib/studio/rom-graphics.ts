@@ -2,6 +2,26 @@ import {memoryHex,validateGameInfo} from './memory-values.js';
 import {readRanges} from './thor-contract.js';
 import type {GraphicsSpec,BridgeInfo,BridgeSend,Manifest,RamRange} from './types.js';
 
+export function graphicsPage(spec:GraphicsSpec,direction:number){
+  const source=validateGraphicsSpec(spec);
+  if(spec.lz77||![ -1,0,1 ].includes(direction))throw Error('Consecutive image browsing requires uncompressed tiles and a valid direction.');
+  const count=Math.min(16,Math.floor(256/spec.height));
+  const tiles=source.tiles+direction*source.size*count;
+  const next={...spec,tiles:'0x'+tiles.toString(16).toUpperCase()};
+  validateGraphicsSpec({...next,height:spec.height*count});
+  if(Math.floor(tiles/0x01000000)!==Math.floor(source.tiles/0x01000000))throw Error('Image page crosses a memory region.');
+  return {spec:next,count};
+}
+export function graphicsPalette(spec:GraphicsSpec,direction:number){
+  const source=validateGraphicsSpec(spec);
+  if(![-1,1].includes(direction))throw Error('Invalid palette direction.');
+  const palette=source.palette+32*direction;
+  const next={...spec,palette:'0x'+palette.toString(16).toUpperCase()};
+  validateGraphicsSpec(next);
+  if(Math.floor(palette/0x01000000)!==Math.floor(source.palette/0x01000000))throw Error('Palette crosses a memory region.');
+  return next;
+}
+
 export function validateGraphicsSpec(spec:GraphicsSpec){
   if(!spec||typeof spec!=='object'||!Number.isInteger(spec.width)||!Number.isInteger(spec.height)||
     spec.width<8||spec.height<8||spec.width>256||spec.height>256||spec.width%8||spec.height%8||typeof spec.lz77!=='boolean')throw Error('Graphics dimensions must be multiples of 8, from 8 to 256.');
@@ -70,7 +90,8 @@ export function graphicsLua(manifest:Manifest){
   });
 }
 function identity(info:BridgeInfo){return JSON.stringify([info.deviceSerial,info.sessionId,info.gameCode,info.crc32]);}
-export async function readGameGraphics(spec:GraphicsSpec,send:BridgeSend,manifest?:Manifest){
+export async function readGameGraphics(spec:GraphicsSpec,send:BridgeSend,manifest?:Manifest,paletteCount=1){
+  if(!Number.isInteger(paletteCount)||paletteCount<1||paletteCount>16)throw Error('Choose between 1 and 16 palettes.');
   const config=validateGraphicsSpec(spec),info=await send('info');
   if(info.platform!=='gba'||!info.capabilities?.inspect||!Number.isInteger(info.romSize)||(info.romSize??0)<1||(info.romSize??0)>0x02000000||!info.sessionId)throw Error('Update GBA Duo Plus to a build with ROM/graphics inspection and enable Studio Connection.');
   if(manifest?.match?.gameCode?.length)validateGameInfo(manifest,info);
@@ -95,9 +116,13 @@ export async function readGameGraphics(spec:GraphicsSpec,send:BridgeSend,manifes
       const output=new Uint8Array(segment.length);for(let offset=0;offset<segment.length;offset+=4096)output.set(chunks[index++],offset);return output;
     });
   }
-  const inputLength=spec.lz77?Math.min(65504,romEnd-config.tiles):config.size;
+  const inputLength=spec.lz77?Math.min(65536-32*paletteCount,romEnd-config.tiles):config.size;
   if(inputLength<4)throw Error('Incomplete tile data.');
-  const [source,palette]=await inspect([{address:config.tiles,length:inputLength},{address:config.palette,length:32}]);
+  const [source,palette]=await inspect([{address:config.tiles,length:inputLength},{address:config.palette,length:32*paletteCount}]);
   const tiles=spec.lz77?decompressLz77(source,config.size):source;
-  return {...decode4bpp(tiles,palette,spec.width,spec.height),info};
+  const variants=Array.from({length:paletteCount},(_,index)=>({
+    ...decode4bpp(tiles,palette.subarray(index*32,index*32+32),spec.width,spec.height),
+    spec:{...spec,palette:'0x'+(config.palette+index*32).toString(16).toUpperCase()}
+  }));
+  return {...variants[0],info,variants};
 }

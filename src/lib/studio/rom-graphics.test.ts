@@ -4,13 +4,40 @@ import {LuaFactory} from 'wasmoon';
 import {createRequire} from 'node:module';
 import {createProject,exportPack,importPack} from './project.js';
 import {computedLua,shouldGenerateScript} from './computed-values.js';
-import {decode4bpp,decompressLz77,readGameGraphics,validateGraphicsSpec,sameGraphicsSource} from './rom-graphics.js';
+import {decode4bpp,decompressLz77,readGameGraphics,validateGraphicsSpec,sameGraphicsSource,graphicsPage,graphicsPalette} from './rom-graphics.js';
 import {insertGraphicsBlock} from './graphics-blocks.js';
 import type {BridgeInfo,BridgeSend,GraphicsSpec} from './types.js';
 const spec:GraphicsSpec={tiles:'0x08000100',palette:'0x08000200',width:8,height:8,lz77:false};
+it('pages whole image batches without overlap and changes one 16-color palette at a time',()=>{
+  const icon={...spec,width:16,height:16};
+  const next=graphicsPage(icon,1);
+  expect(next.count).toBe(16);expect(next.spec.tiles).toBe('0x8000900');
+  expect(sameGraphicsSource(graphicsPage(next.spec,-1).spec,icon)).toBe(true);
+  expect(graphicsPage({...icon,height:72},0).count).toBe(3);
+  expect(graphicsPalette(icon,1).palette).toBe('0x8000220');
+  expect(sameGraphicsSource(graphicsPalette(graphicsPalette(icon,1),-1),icon)).toBe(true);
+  expect(()=>graphicsPage({...icon,tiles:'0x08000000'},-1)).toThrow();
+  expect(()=>graphicsPage({...icon,lz77:true},1)).toThrow('uncompressed');
+  expect(()=>graphicsPage({...icon,tiles:'0x06017F80'},1)).toThrow();
+  expect(()=>graphicsPalette({...icon,palette:'0x050003E0'},1)).toThrow();
+});
 const info:BridgeInfo={platform:'gba',gameCode:'TEST',crc32:'12345678',sessionId:'a',romSize:0x1000,bridgeVersion:2,capabilities:{inspect:true}};
 const bytes=new Uint8Array(0x1000);bytes.fill(0x11,0x100,0x120);bytes[0x202]=31;
 const send:BridgeSend=async(command,params)=>command==='info'?info:{...info,ranges:params!.ranges.map(range=>({...range,base64:btoa(String.fromCharCode(...bytes.slice(range.address-0x08000000,range.address-0x08000000+range.length)))}))};
+it('compares palette variants from one coherent read with exact source descriptors',async()=>{
+  let inspections=0;
+  const counted:BridgeSend=async(command,params)=>{
+    if(command==='inspect'){inspections++;expect(params!.ranges).toEqual([{address:0x08000100,length:32},{address:0x08000200,length:256}]);}
+    return send(command,params);
+  };
+  const result=await readGameGraphics(spec,counted,undefined,8);
+  expect(inspections).toBe(1);expect(result.variants).toHaveLength(8);
+  expect(result.variants[0].rgba[0]).toBe(248);expect(result.variants[1].rgba[0]).toBe(0);
+  expect(result.variants[7].spec.palette).toBe('0x80002E0');
+  await expect(readGameGraphics(spec,send,undefined,17)).rejects.toThrow('16 palettes');
+  await expect(readGameGraphics({...spec,palette:'0x08000FE0'},send,undefined,8)).rejects.toThrow('ROM size');
+  await expect(readGameGraphics({...spec,palette:'0x050003E0'},send,undefined,8)).rejects.toThrow();
+});
 it('decodes 4bpp nibble order, tile rows, palette colors and transparent zero exactly like native gfx',()=>{
   const tiles=new Uint8Array(64);tiles[0]=0x21;tiles[32]=3;const palette=new Uint8Array(32);palette[2]=31;palette[4]=0xe0;palette[5]=3;palette[7]=0x7c;
   const image=decode4bpp(tiles,palette,16,8);
