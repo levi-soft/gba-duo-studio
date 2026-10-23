@@ -249,7 +249,7 @@
   async function openFile(e:InputEvent,pack = false) {
     const input=e.currentTarget;
     const file = input.files?.[0]; if (!file) return;
-    try { const p = pack ? await importPack(file) : migrateDefaultCanvasPadding(JSON.parse(await file.text())); validate(p); history = [...history, clone(project)]; future = []; project = p; selected = p.layout.id; dirty = false; log = $uiText("Đã mở {0}. Bản trước vẫn có thể khôi phục bằng Hoàn tác.", file.name); editorError = ''; } catch (e) { editorError = errorMessage(e); }
+    try { const p = pack || file.name.toLowerCase().endsWith('.zip') ? await importPack(file) : migrateDefaultCanvasPadding(JSON.parse(await file.text())); validate(p); history = [...history, clone(project)]; future = []; project = p; selected = p.layout.id; mode='2d'; leftTab='scene'; sceneSearch=''; assetSearch=''; collapsed={}; fileTab='assets'; dirty = false; log = $uiText("Đã mở {0}. Bản trước vẫn có thể khôi phục bằng Hoàn tác.", file.name); editorError = ''; requestAnimationFrame(fitCanvas); } catch (e) { editorError = errorMessage(e); }
     input.value = '';
   }
   async function addAssetFiles(files:File[]) {
@@ -420,7 +420,7 @@
   <footer><span>{$uiText("◈ GBA Duo Studio · Cục bộ")}</span><span>{entries.length} {$uiText("nút ·")} {assetPaths.length} {$uiText("tài nguyên")}</span><span>{$uiText("Thiết kế dùng chung cho nhiều game · dữ liệu RAM theo từng game")}</span></footer>
 </div>
 <input bind:this={importInput} hidden type="file" accept=".zip" onchange={(e) => openFile(e, true)} />
-<input bind:this={projectInput} hidden type="file" accept=".json" onchange={(e) => openFile(e)} />
+<input bind:this={projectInput} hidden type="file" accept=".json,.zip,application/json,application/zip,application/x-zip-compressed" onchange={(e) => openFile(e)} />
 <input bind:this={assetInput} hidden type="file" accept="image/*,.ttf,.otf,.woff,.woff2" multiple onchange={addAssets} />
 {#if showNew || showSettings}
   <div class="modal-backdrop"><div role="dialog" tabindex="-1" aria-modal="true" aria-label={showNew ? $uiText("Dự án mới") : $uiText("Thiết lập dự án")} class="modal"><div class="modal-title"><h2>{showNew ? $uiText("Dự án companion mới") : $uiText("Thiết lập dự án")}</h2><button onclick={() => { showNew = false; showSettings = false; }}>✕</button></div>
