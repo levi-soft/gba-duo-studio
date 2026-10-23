@@ -5,9 +5,11 @@
   import RamMemoryTable from './RamMemoryTable.svelte';
   import MemoryScanner from './MemoryScanner.svelte';
   import RomGraphics from './RomGraphics.svelte';
+  import HpDiscovery from './HpDiscovery.svelte';
+  import type {HpCandidate} from './hp-discovery.js';
   import {decodeRamRange,ramPageAddress} from './ram-data.js';
   import type {BridgeInfo,EncodedRamRange,DataValues,Manifest,MemoryType,GraphicsSpec} from './types.js';
-  let {manifest,onsave,onbar,onprofile,onimage,onidentity}:{manifest:Manifest;onsave:(info:BridgeInfo,name:string,address:number,type:MemoryType,value:number)=>void;onbar:(current:string,maximum:string)=>void;onprofile:(text:string)=>void;onimage:(key:string,spec:GraphicsSpec,info:BridgeInfo,preview:string)=>void;onidentity:(info:BridgeInfo)=>void}=$props();
+  let {manifest,onsave,onbar,onprofile,onimage,onidentity,onhp}:{manifest:Manifest;onsave:(info:BridgeInfo,name:string,address:number,type:MemoryType,value:number)=>void;onbar:(current:string,maximum:string)=>void;onprofile:(text:string)=>void;onimage:(key:string,spec:GraphicsSpec,info:BridgeInfo,preview:string)=>void;onidentity:(info:BridgeInfo)=>void;onhp:(info:BridgeInfo,candidate:HpCandidate,current:number,maximum:number,subject:string)=>void}=$props();
   interface Packet extends BridgeInfo {ranges?: (EncodedRamRange & {name?:string})[];frame?:number;paused?:boolean}
   let devices=$state<{serial:string;state:string;model:string}[]>([]),serial=$state(''),info=$state<Packet|null>(null),error=$state(''),busy=$state(false),stale=$state(false);
   let address=$state('0x02000000'),length=$state(256),watching=$state(false),memory=$state<{address:number;bytes:Uint8Array}|null>(null),updated=$state('');
@@ -66,6 +68,7 @@
   <div class="ram-actions"><select aria-label={$uiText("Thiết bị Thor")} bind:value={serial}><option value="">{$uiText("Chọn thiết bị…")}</option>{#each devices as device}<option value={device.serial} disabled={device.state!=='device'}>{device.model} · {device.state}</option>{/each}</select><button onclick={refreshDevices}>{$uiText("Làm mới thiết bị")}</button><button class="primary" disabled={busy||!serial} onclick={connect}>{$uiText("Kết nối Thor")}</button></div>
   {#if error}<p class="error" role="alert">{$uiText(error)}</p>{/if}
   {#if info}<div class:stale class="ram-info"><strong>{info.gameCode||'GBA'} · Frame {info.frame}</strong><span>CRC32: {info.crc32} {$uiText("(tùy chọn)")}</span><span>{info.paused?$uiText("Game đang tạm dừng"):$uiText("Game đang chạy")} · {stale?$uiText("Mất kết nối · đang giữ dữ liệu lần cuối"):$uiText("Cập nhật ")+updated}</span></div>{/if}
+  <HpDiscovery {info} {request} oncreate={onhp} />
   <MemoryScanner {info} {request} {manifest} {onsave} {onbar} {onprofile} />
   <RomGraphics {manifest} {info} {request} oncreate={onimage} />
   <div class="ram-actions"><label>{$uiText("Địa chỉ")}<input aria-label={$uiText("Địa chỉ RAM")} bind:value={address} placeholder="0x02000000" /></label><label>{$uiText("Số byte")}<input aria-label={$uiText("Số byte RAM")} type="number" min="1" max="4096" bind:value={length} /></label><button disabled={busy||!info||watching} onclick={readOnce}>{$uiText("Đọc một lần")}</button><button class:chosen={watching} disabled={!info} onclick={toggleWatch}>{watching?$uiText("Dừng theo dõi"):$uiText("Theo dõi 5 lần/giây")}</button></div>

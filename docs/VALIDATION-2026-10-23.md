@@ -74,3 +74,12 @@
 - Test profiles, game identifiers, addresses, screenshots and output packs stay
   outside public source. The test targets one fixed character slot, not general
   cursor-following selection or complete game mechanics.
+
+## Guided HP discovery
+
+- Added a bilingual guided flow that scans unsigned 8/16-bit values across RAM without asking users for addresses or data types, filters using actual in-game HP changes, watches one candidate at 750 ms intervals, and creates a bound bar in one editor transaction.
+- Maximum HP is explicitly fixed. Direct-address fields are marked fixed-unit and unverified; no selected-unit pointer discovery is claimed.
+- 117 tests passed; Svelte check returned zero errors and warnings; production build and source-neutrality checks passed.
+- Real Thor/browser test: 16 HP produced 1176 candidates; after the user changed Lyn to 6 HP, filtering left two. The first independently matched the known private HP address. Live checking showed 6, and Create HP bar produced the widget on canvas. Browser ZIP export was inspected: direct u8 field, fixed maximum 16, no maxKey, four normal pack files and no captures, scripts, ROM, or game artwork.
+- During this test, inherited maxKey from the generic widget was detected and fixed in the constructor with a regression assertion; the already-created test widget was corrected in Inspector before export.
+- New ZIP not imported on the handheld in this run. This evidence does not establish pointer discovery, dynamic maximum HP, every-game compatibility, or user acceptance of the final workflow.

@@ -70,3 +70,5 @@ The active preview implementation is in `src/lib/preview/`. See [workspace bound
 GPL-3.0-only; see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md). The compatible baseline CSS includes adaptations from GBA Duo under its GPL license. Third-party dependency notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Studio's license does not change the rights to companion assets or scripts.
 
 Private projects, game adapters/assets, releases and historical archives are outside this source distribution. Review [SECURITY.md](SECURITY.md) before using live memory tools and [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
+
+Guided discovery: [find character HP without entering RAM addresses](docs/HP-DISCOVERY.md). This development workflow still requires in-game value changes and manual candidate verification.

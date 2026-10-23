@@ -62,3 +62,5 @@ Lệnh thứ hai tạo ZIP mã nguồn trong `.studio-runtime/distribution/`, kh
 Giấy phép: GPL-3.0-only. Xem [NOTICE.md](NOTICE.md) để biết nguồn CSS tương thích và thư viện. Giấy phép Studio không thay đổi quyền sở hữu asset hay companion do bạn tạo.
 
 Studio do [levi-soft](https://github.com/levi-soft) duy trì, tạo companion cho [GBA Duo của khumam](https://github.com/khumam/gba-duo). Xin cảm ơn tác giả và các cộng tác viên GBA Duo đã phát triển giả lập và định dạng companion gốc. Đây là công cụ cộng đồng độc lập, không phải giả lập hay simulator chính thức.
+
+Dò dữ liệu theo hướng dẫn: [tìm HP nhân vật mà không nhập địa chỉ RAM](docs/HP-DISCOVERY.vi.md). Luồng thử nghiệm vẫn cần thay đổi HP trong game và đối chiếu ứng viên.
