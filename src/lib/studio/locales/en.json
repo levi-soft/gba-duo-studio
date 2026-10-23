@@ -659,5 +659,6 @@
   "Thor chưa phản hồi. Kiểm tra game đang chạy trong GBA Duo Plus.": "Thor has not responded. Check that the game is running in GBA Duo Plus.",
   "Chưa truy cập được cầu nối. Hãy mở game bằng GBA Duo Plus trên Thor.": "Cannot access the bridge. Open a game in GBA Duo Plus on Thor.",
   "Cầu nối đóng kết nối. Hãy kiểm tra GBA Duo Plus đang mở game.": "The bridge closed the connection. Check that GBA Duo Plus is running a game.",
-  "Không kết nối được GBA Duo Plus.": "Cannot connect to GBA Duo Plus."
+  "Không kết nối được GBA Duo Plus.": "Cannot connect to GBA Duo Plus.",
+  "Dữ liệu mẫu dùng để thiết kế. Trường RAM và profile tạo được bằng biểu mẫu, không cần viết Lua; Studio đọc game qua GBA Duo Plus.": "Sample data is for design. Create RAM fields and profiles through forms without writing Lua; Studio reads the game through GBA Duo Plus."
 }

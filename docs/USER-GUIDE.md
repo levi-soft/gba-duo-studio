@@ -43,6 +43,9 @@ Studio uses a local ADB forward on port 8787. It does not offer arbitrary shell 
 
 ## Troubleshooting and scope
 
+For reusable profiles, read-only candidate filtering and creating a bound progress
+bar without code, see [Data blocks](DATA-BLOCKS.md).
+
 | Symptom | Check |
 |---|---|
 | Startup fails | Confirm a supported Node version with `node --version`; run `npm ci`; read the terminal or `.studio-runtime/server-error.log`. |

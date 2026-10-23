@@ -1,5 +1,9 @@
 # GBA Duo Studio
 
+Mới: [profile dữ liệu và block chỉ số không cần viết code](docs/DATA-BLOCKS.vi.md).
+Nhập cấu hình RAM đã biết, chọn block để tạo thanh chỉ số và xem dữ liệu thật;
+công cụ dò RAM chỉ cần dùng khi game chưa có profile.
+
 Công cụ thiết kế companion bằng kéo thả cho GBA Duo. Giao diện mặc định tiếng Anh, có thể đổi sang tiếng Việt. Đây là công cụ cộng đồng, không phải bản phát hành chính thức của GBA Duo.
 
 ## Chạy Studio

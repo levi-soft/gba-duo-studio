@@ -43,6 +43,9 @@ Studio chuyển tiếp ADB cục bộ qua cổng 8787; không cung cấp lệnh 
 
 ## Xử lý lỗi và giới hạn
 
+Xem [Block dữ liệu không cần viết code](DATA-BLOCKS.vi.md) để nhập profile,
+lọc ứng viên RAM và tạo thanh chỉ số từ các trường đã lưu.
+
 | Hiện tượng | Cách kiểm tra |
 |---|---|
 | Không khởi động | Kiểm tra `node --version`, chạy `npm ci`, xem terminal hoặc `.studio-runtime/server-error.log`. |

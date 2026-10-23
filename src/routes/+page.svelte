@@ -8,6 +8,10 @@
   import ScriptEditor from '../lib/studio/ScriptEditor.svelte';
   import MemoryFields from '../lib/studio/MemoryFields.svelte';
   import RamInspector from '../lib/studio/RamInspector.svelte';
+  import {registerMemoryBlock} from '../lib/studio/memory-scan.js';
+  import {parseDataProfile,applyDataProfile} from '../lib/studio/data-profiles.js';
+  import {insertBoundBar} from '../lib/studio/data-blocks.js';
+  import type {BridgeInfo,MemoryType} from '../lib/studio/types.js';
   import Preview from '../lib/studio/Preview.svelte';
   import TabFont from '../lib/studio/TabFont.svelte';
   import SkinEditor from '../lib/studio/SkinEditor.svelte';
@@ -40,6 +44,20 @@
   let liveEnabled=$state(false),liveData=$state<DataValues|null>(null),liveStatus=$state<{kind:string;message?:string}>({kind:'sample'});
   const previewData=$derived(liveEnabled ? (liveData ? {...project.data,...liveData} : {}) : project.data);
   function setMemoryFields(values:Record<string,MemorySpec>){edit(p=>{p.manifest.values=values;for(const name of Object.keys(values))if(!Object.hasOwn(p.data,name))Object.defineProperty(p.data,name,{value:0,enumerable:true,writable:true,configurable:true});},$uiText("Đã cập nhật trường RAM của dự án."));}
+
+  function importDataProfile(text:string){
+    const next=clone(project);applyDataProfile(next,parseDataProfile(text));validate(next);
+    edit(p=>{p.manifest=next.manifest;p.data=next.data;},'Data profile imported.');
+  }
+  function saveMemoryBlock(info:BridgeInfo,name:string,address:number,type:MemoryType,value:number){
+    const next=clone(project);registerMemoryBlock(next,info,name,address,type,value);validate(next);
+    edit(p=>{p.manifest=next.manifest;p.data=next.data;},'Data block saved.');
+  }
+  function addMemoryBar(current:string,maximum:string){
+    const parent=container(project,selected);if(!parent)throw Error('Select a container in Scene first.');
+    const next=clone(project);const id=insertBoundBar(next,parent.id,current,maximum);validate(next);
+    edit(p=>{p.layout=next.layout;},'Bound progress bar created.');selected=id;mode='2d';
+  }
 
   let mode = $state('2d'), dock = $state('output'), leftTab = $state('scene');
   let zoom = $state(0.4), log = $state($uiText("Sẵn sàng. Kéo thành phần từ thư viện vào màn hình hoặc cây Scene."));
@@ -289,9 +307,9 @@
       <div class="canvas-toolbar"><button title={$uiText("Chọn thành phần")} class:chosen={mode === '2d'} onclick={() => mode = '2d'}>↖</button><button title={$uiText("Hoàn tác Ctrl+Z")} disabled={!history.length} onclick={undo}>↶</button><button title={$uiText("Làm lại Ctrl+Shift+Z")} disabled={!future.length} onclick={redo}>↷</button><span class="divider"></span><label class="zoom"><input aria-label={$uiText("Thu phóng")} type="range" min="0.05" max="1.5" step="0.01" bind:value={zoom} />{Math.round(zoom * 100)}%</label><button title={$uiText("Vừa vùng thiết kế")} onclick={fitCanvas}>{$uiText("Vừa khung")}</button><button class:chosen={grid.visible} aria-pressed={grid.visible} title={$uiText("Hiện lưới trên bàn thiết kế")} onclick={() => setGrid("visible", !grid.visible)}>{$uiText("▦ Lưới")}</button><button class:chosen={grid.snap} aria-pressed={grid.snap} title={$uiText("Bắt dính theo lưới; giữ Alt để tạm bỏ")} onclick={() => setGrid("snap", !grid.snap)}>{$uiText("⌗ Bắt dính")}</button><label class="grid-step">{$uiText("Bước (px)")}<input aria-label={$uiText("Bước lưới (pixel)")} type="number" min="1" max="512" value={grid.size} onchange={(e) => setGrid("size", Number(e.currentTarget.value))} /></label><span class="spacer"></span><button title={$uiText("Đổi kích thước màn hình")} onclick={() => showSettings = true}>{project.width} {$uiText("×")} {project.height} ⚙</button></div>
       <LiveMemoryBar manifest={project.manifest} projectId={project.layout.id} enabled={liveEnabled} onenabled={(value)=>liveEnabled=value} ondata={(value)=>liveData=value} onstatus={(value)=>liveStatus=value} />
       {#if mode === 'ram'}
-        <RamInspector />
+        <RamInspector manifest={project.manifest} onsave={saveMemoryBlock} onbar={addMemoryBar} onprofile={importDataProfile} />
       {:else if mode === 'data'}
-        <div class="data-workspace"><div class="data-title"><h2>{$uiText("Dữ liệu & giao diện")}</h2><div><button class:chosen={dataMode === "form"} onclick={() => dataMode = "form"}>{$uiText("Biểu mẫu")}</button><button class:chosen={dataMode === "code"} onclick={() => { openData(); dataMode = "code"; }}>JSON / CSS</button></div>{#if dataMode === "code"}<button class="primary" onclick={applyData}>{$uiText("Áp dụng thay đổi")}</button>{/if}</div><p>{$uiText("Dữ liệu mẫu dùng để thiết kế. Đọc bộ nhớ game cần Lua riêng; studio không chạy ROM hoặc Lua.")}</p>{#if dataMode === "form"}<MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><DataEditor value={project.data} onchange={changeData} /><details><summary>{$uiText("Bảng màu & biến giao diện (")}{themeVariables.length})</summary>{#each themeVariables as variable}<label>{variable.name}<input value={variable.value} onchange={(e) => setThemeVariable(variable.name,e.currentTarget.value)} /></label>{/each}</details>{:else}<label>{$uiText("Dữ liệu mẫu JSON")}<textarea spellcheck="false" bind:value={dataText} rows="13"></textarea></label><details><summary>{$uiText("CSS nâng cao")}</summary><textarea spellcheck="false" bind:value={cssText} rows="10"></textarea></details><details><summary>{$uiText("Cấu trúc layout JSON")}</summary><textarea spellcheck="false" bind:value={layoutText} rows="14"></textarea></details>{/if}</div>
+        <div class="data-workspace"><div class="data-title"><h2>{$uiText("Dữ liệu & giao diện")}</h2><div><button class:chosen={dataMode === "form"} onclick={() => dataMode = "form"}>{$uiText("Biểu mẫu")}</button><button class:chosen={dataMode === "code"} onclick={() => { openData(); dataMode = "code"; }}>JSON / CSS</button></div>{#if dataMode === "code"}<button class="primary" onclick={applyData}>{$uiText("Áp dụng thay đổi")}</button>{/if}</div><p>{$uiText("Dữ liệu mẫu dùng để thiết kế. Trường RAM và profile tạo được bằng biểu mẫu, không cần viết Lua; Studio đọc game qua GBA Duo Plus.")}</p>{#if dataMode === "form"}<MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><DataEditor value={project.data} onchange={changeData} /><details><summary>{$uiText("Bảng màu & biến giao diện (")}{themeVariables.length})</summary>{#each themeVariables as variable}<label>{variable.name}<input value={variable.value} onchange={(e) => setThemeVariable(variable.name,e.currentTarget.value)} /></label>{/each}</details>{:else}<label>{$uiText("Dữ liệu mẫu JSON")}<textarea spellcheck="false" bind:value={dataText} rows="13"></textarea></label><details><summary>{$uiText("CSS nâng cao")}</summary><textarea spellcheck="false" bind:value={cssText} rows="10"></textarea></details><details><summary>{$uiText("Cấu trúc layout JSON")}</summary><textarea spellcheck="false" bind:value={layoutText} rows="14"></textarea></details>{/if}</div>
       {:else}
         <div class="canvas-area">
           <div class="ruler-x">0 <span>100</span><span>200</span><span>300</span><span>400</span></div>
