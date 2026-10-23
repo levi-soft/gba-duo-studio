@@ -3,6 +3,7 @@
   import {memoryTypes} from './memory-values.js';
   import {scanIdentity,scanSamples,startScan,refineScan,scanValue} from './memory-scan.js';
   import {parseDataProfile} from './data-profiles.js';
+  import BlockSearch from './BlockSearch.svelte';
   import type {BridgeInfo,MemoryType,Manifest} from './types.js';
   type Scan=ReturnType<typeof startScan>;
   let {info,request,manifest,onsave,onbar,onprofile}:{info:BridgeInfo|null;request:(command:string)=>Promise<BridgeInfo>;manifest:Manifest;onsave:(info:BridgeInfo,name:string,address:number,type:MemoryType,value:number)=>void;onbar:(current:string,maximum:string)=>void;onprofile:(text:string)=>void}=$props();
@@ -37,12 +38,13 @@
     catch(e){error=e instanceof Error?e.message:String(e);}finally{input.value='';}
   }
   function exportProfile(){
-    try{error='';const profile=parseDataProfile(JSON.stringify({profileVersion:1,name:manifest.name,match:manifest.match,values:manifest.values}));
+    try{error='';const profile=parseDataProfile(JSON.stringify({profileVersion:1,name:manifest.studioProfileName??manifest.name,match:manifest.match,values:manifest.values,fieldInfo:manifest.studioFieldInfo}));
       const url=URL.createObjectURL(new Blob([JSON.stringify(profile,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='data-profile.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
     }catch(e){error=e instanceof Error?e.message:String(e);}
   }
 </script>
 <section class="scanner">
+  <BlockSearch {manifest} {onbar} />
   <h3>{copy('Reusable data profiles','Profile dữ liệu dùng lại')}</h3>
   <p>{copy('Already know the game data? Import a profile and use its blocks directly; scanning is optional. Profiles contain addresses and types, without game graphics or RAM dumps.','Đã có cấu hình dữ liệu game? Nhập profile và dùng block ngay, không cần dò lại. Profile chỉ chứa địa chỉ và kiểu dữ liệu, không chứa ảnh game hay bản chụp RAM.')}</p>
   <input type="file" accept=".json,application/json" bind:this={profileInput} onchange={importProfile} hidden />

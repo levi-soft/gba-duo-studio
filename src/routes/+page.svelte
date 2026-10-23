@@ -7,11 +7,12 @@
   import LiveMemoryBar from '../lib/studio/LiveMemoryBar.svelte';
   import ScriptEditor from '../lib/studio/ScriptEditor.svelte';
   import MemoryFields from '../lib/studio/MemoryFields.svelte';
+  import FieldDescriptions from '../lib/studio/FieldDescriptions.svelte';
   import RamInspector from '../lib/studio/RamInspector.svelte';
   import {registerMemoryBlock} from '../lib/studio/memory-scan.js';
-  import {parseDataProfile,applyDataProfile} from '../lib/studio/data-profiles.js';
+  import {parseDataProfile,applyDataProfile,parseFieldInfo,reconcileFieldInfo} from '../lib/studio/data-profiles.js';
   import {insertBoundBar} from '../lib/studio/data-blocks.js';
-  import type {BridgeInfo,MemoryType} from '../lib/studio/types.js';
+  import type {BridgeInfo,MemoryType,FieldInfo} from '../lib/studio/types.js';
   import Preview from '../lib/studio/Preview.svelte';
   import TabFont from '../lib/studio/TabFont.svelte';
   import SkinEditor from '../lib/studio/SkinEditor.svelte';
@@ -43,8 +44,12 @@
   let selected = $state('');
   let liveEnabled=$state(false),liveData=$state<DataValues|null>(null),liveStatus=$state<{kind:string;message?:string}>({kind:'sample'});
   const previewData=$derived(liveEnabled ? (liveData ? {...project.data,...liveData} : {}) : project.data);
-  function setMemoryFields(values:Record<string,MemorySpec>){edit(p=>{p.manifest.values=values;for(const name of Object.keys(values))if(!Object.hasOwn(p.data,name))Object.defineProperty(p.data,name,{value:0,enumerable:true,writable:true,configurable:true});},$uiText("Đã cập nhật trường RAM của dự án."));}
+  function setMemoryFields(values:Record<string,MemorySpec>){edit(p=>{p.manifest.studioFieldInfo=reconcileFieldInfo(p.manifest.values??{},values,p.manifest.studioFieldInfo);p.manifest.values=values;for(const name of Object.keys(values))if(!Object.hasOwn(p.data,name))Object.defineProperty(p.data,name,{value:0,enumerable:true,writable:true,configurable:true});},$uiText("Đã cập nhật trường RAM của dự án."));}
 
+  function setFieldDescriptions(info:Record<string,FieldInfo>){
+    const clean=parseFieldInfo(info,project.manifest.values??{});
+    edit(p=>{p.manifest.studioFieldInfo=clean;},'Block descriptions saved.');
+  }
   function importDataProfile(text:string){
     const next=clone(project);applyDataProfile(next,parseDataProfile(text));validate(next);
     edit(p=>{p.manifest=next.manifest;p.data=next.data;},'Data profile imported.');
@@ -309,7 +314,7 @@
       {#if mode === 'ram'}
         <RamInspector manifest={project.manifest} onsave={saveMemoryBlock} onbar={addMemoryBar} onprofile={importDataProfile} />
       {:else if mode === 'data'}
-        <div class="data-workspace"><div class="data-title"><h2>{$uiText("Dữ liệu & giao diện")}</h2><div><button class:chosen={dataMode === "form"} onclick={() => dataMode = "form"}>{$uiText("Biểu mẫu")}</button><button class:chosen={dataMode === "code"} onclick={() => { openData(); dataMode = "code"; }}>JSON / CSS</button></div>{#if dataMode === "code"}<button class="primary" onclick={applyData}>{$uiText("Áp dụng thay đổi")}</button>{/if}</div><p>{$uiText("Dữ liệu mẫu dùng để thiết kế. Trường RAM và profile tạo được bằng biểu mẫu, không cần viết Lua; Studio đọc game qua GBA Duo Plus.")}</p>{#if dataMode === "form"}<MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><DataEditor value={project.data} onchange={changeData} /><details><summary>{$uiText("Bảng màu & biến giao diện (")}{themeVariables.length})</summary>{#each themeVariables as variable}<label>{variable.name}<input value={variable.value} onchange={(e) => setThemeVariable(variable.name,e.currentTarget.value)} /></label>{/each}</details>{:else}<label>{$uiText("Dữ liệu mẫu JSON")}<textarea spellcheck="false" bind:value={dataText} rows="13"></textarea></label><details><summary>{$uiText("CSS nâng cao")}</summary><textarea spellcheck="false" bind:value={cssText} rows="10"></textarea></details><details><summary>{$uiText("Cấu trúc layout JSON")}</summary><textarea spellcheck="false" bind:value={layoutText} rows="14"></textarea></details>{/if}</div>
+        <div class="data-workspace"><div class="data-title"><h2>{$uiText("Dữ liệu & giao diện")}</h2><div><button class:chosen={dataMode === "form"} onclick={() => dataMode = "form"}>{$uiText("Biểu mẫu")}</button><button class:chosen={dataMode === "code"} onclick={() => { openData(); dataMode = "code"; }}>JSON / CSS</button></div>{#if dataMode === "code"}<button class="primary" onclick={applyData}>{$uiText("Áp dụng thay đổi")}</button>{/if}</div><p>{$uiText("Dữ liệu mẫu dùng để thiết kế. Trường RAM và profile tạo được bằng biểu mẫu, không cần viết Lua; Studio đọc game qua GBA Duo Plus.")}</p>{#if dataMode === "form"}<MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><FieldDescriptions manifest={project.manifest} onchange={setFieldDescriptions} /><DataEditor value={project.data} onchange={changeData} /><details><summary>{$uiText("Bảng màu & biến giao diện (")}{themeVariables.length})</summary>{#each themeVariables as variable}<label>{variable.name}<input value={variable.value} onchange={(e) => setThemeVariable(variable.name,e.currentTarget.value)} /></label>{/each}</details>{:else}<label>{$uiText("Dữ liệu mẫu JSON")}<textarea spellcheck="false" bind:value={dataText} rows="13"></textarea></label><details><summary>{$uiText("CSS nâng cao")}</summary><textarea spellcheck="false" bind:value={cssText} rows="10"></textarea></details><details><summary>{$uiText("Cấu trúc layout JSON")}</summary><textarea spellcheck="false" bind:value={layoutText} rows="14"></textarea></details>{/if}</div>
       {:else}
         <div class="canvas-area">
           <div class="ruler-x">0 <span>100</span><span>200</span><span>300</span><span>400</span></div>
@@ -406,7 +411,7 @@
   <div class="modal-backdrop"><div class="modal project-tools-modal" role="dialog" aria-modal="true" tabindex="-1" aria-label={$uiText("Công cụ dự án")}>
     <div class="modal-title"><h2>{$uiText("Công cụ dự án")}</h2><button onclick={()=>showProjectTools=false} aria-label={$uiText("Đóng")}>✕</button></div>
     <p class="dock-hint">{$uiText("Thiết lập dùng chung cho toàn dự án, không phụ thuộc thành phần đang chọn.")}</p>
-    <details open><summary>{$uiText("Trường bộ nhớ")}</summary><MemoryFields manifest={project.manifest} onchange={setMemoryFields} /></details>
+    <details open><summary>{$uiText("Trường bộ nhớ")}</summary><MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><FieldDescriptions manifest={project.manifest} onchange={setFieldDescriptions} /></details>
     <ScriptEditor {project} onchange={(next)=>edit(p=>{p.manifest=next.manifest;p.files=next.files;},$uiText("Đã cập nhật Lua."))}/>
     <details><summary>{$uiText("Nhấp nháy và trạng thái")}</summary><PulseRules config={project.manifest.studioPulse} fields={dataPaths(project.data).map(f=>({...f,label:f.path}))} onchange={(config)=>edit(p=>{const old=p.manifest.studioPulse?.bindings??{};p.manifest.studioPulse=config;for(const key of new Set([...Object.keys(old),...Object.keys(config.bindings)]))p.data[key]=false;},$uiText("Đã cập nhật nhịp nhấp nháy."))} /></details>
     <p class="dock-hint">{$uiText("Lua được giữ nguyên khi nhập và xuất pack. Dữ liệu riêng của game thuộc companion, không thuộc mã nguồn Studio.")}</p>

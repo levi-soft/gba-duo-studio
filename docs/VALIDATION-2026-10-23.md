@@ -1,5 +1,24 @@
 # Numeric data-block workflow validation
 
+## Local natural-language profile search
+
+- The follow-up `npm run verify` passed with 105 tests in 19 files, 0 Svelte
+  errors/warnings, game-neutral checks and a production build.
+- Browser-tested the existing private numeric project using the new description
+  form: saved a fixed-unit current/maximum HP pair and the prior in-game
+  verification claim. A Vietnamese HP request returned that pair. Clicking the
+  result created a new bar whose Inspector bound current/maximum to the expected
+  fields, without writing code.
+- A selected-unit request correctly showed the fixed-slot mismatch and disabled
+  creation. Reloading the page retained descriptions. The review tab remains open
+  with the successful request; screenshots stay in the private test workspace.
+- Search is deterministic and local, limited to HP meanings/aliases. It does not
+  call an LLM, discover unknown RAM, independently verify profile assertions or
+  implement the selected-unit game adapter.
+- New tests cover bilingual/diacritic queries, aliases, scope mismatch, ambiguous
+  and cross-owner pairs, stale suggestions, metadata round-trip/validation and
+  invalidating verification when the underlying RAM definition changes.
+
 - `npm run verify`: game-neutral source scan, preview-independence scan, strict
   Svelte check (0 errors, 0 warnings), 98 tests in 18 files and production build
   passed on Windows.

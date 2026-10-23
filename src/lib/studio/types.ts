@@ -19,6 +19,15 @@ export interface TreeRef { node: LayoutNode; parent: LayoutNode | LayoutEntry | 
 export interface PulseConfig { periodMs: number; bindings: Record<string,string> }
 export type MemoryType = 'u8' | 's8' | 'u16' | 's16' | 'u32' | 's32';
 export interface MemorySpec { type: MemoryType; addr?: string; ptr?: string; offset?: number; mask?: string; shift?: number }
+export interface FieldInfo {
+  semantic: 'hp.current' | 'hp.maximum';
+  scope: 'fixed-unit' | 'selected-unit' | 'unknown';
+  subject: string;
+  label?: string;
+  description?: string;
+  aliases?: string[];
+  verified?: boolean;
+}
 export type Scalar = string | number | boolean;
 export type ExpressionOp = 'choose' | 'eq' | 'ge' | 'and' | 'or' | 'first' | 'add' | 'sub' | 'mul' | 'max' | 'mod' | 'divfloor';
 export type Expression = Scalar | {field?: string; lookup?: Expression; table?: Record<string,Scalar>; op?: ExpressionOp; args?: Expression[]};
@@ -27,6 +36,7 @@ export interface Manifest {
   match?: { gameCode?: string[]; crc32?: string[] }; tickHz?: number;
   layout?: string; styles?: string[]; script?: string;
   values?: Record<string,MemorySpec>; studioComputed?: Record<string,Expression>; studioPulse?: PulseConfig;
+  studioFieldInfo?: Record<string,FieldInfo>; studioProfileName?: string;
   [key: string]: unknown;
 }
 export interface Project { studioVersion?: number; layout: LayoutNode; css: string; files: Record<string,string>; data: DataValues; manifest: Manifest; width: number; height: number; editorGrid?: {visible:boolean;snap:boolean;size:number}; [key: string]: unknown }

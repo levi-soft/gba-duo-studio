@@ -26,6 +26,27 @@ refuse duplicate field keys, mismatching existing ROM filters and custom Lua
 projects rather than replacing their behavior silently. Exporting a profile
 includes only its name, version, game filters and memory specifications.
 
+## Find blocks by describing what you need
+
+In **RAM Thor → Find data blocks**, enter “Find unit HP” or the Vietnamese
+equivalent “Tìm máu của unit”. The first version recognizes HP/health requests,
+with or without Vietnamese accents, and aliases supplied by the profile. It
+searches loaded numeric fields locally; there is no cloud AI call or automatic
+RAM discovery. A matching pair offers **Create HP bar from these blocks**.
+
+Profile authors can use **Data → Describe blocks for natural-language search**
+to assign current/maximum HP, a shared owner/group, fixed versus selected unit,
+a display label and an in-game verification flag. Profile import/export and
+project/pack round-trips preserve these descriptions. Editing a RAM definition
+invalidates its old verification flag; deleting a field removes its description.
+
+Requests for a selected/hovered unit require a profile pair explicitly marked
+for a selected unit and verified by its author. A fixed slot or an unidentified
+owner is shown with a scope warning and cannot satisfy that request. The tool
+does not infer selection from a direct address or a pointer. Ambiguous or
+cross-owner HP pairs are not automatically combined. Verification is a profile
+author's assertion, not independent proof produced by this search.
+
 ## Discover data for a game without a profile
 
 Connect the handheld in **RAM Thor**. Under **Discover data blocks**, select a RAM

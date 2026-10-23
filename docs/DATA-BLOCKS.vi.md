@@ -23,6 +23,26 @@ CRC32 trong **Project**. Nhập profile sẽ từ chối khóa trùng, bộ lọ
 và dự án dùng Lua tùy chỉnh để tránh thay đổi âm thầm logic đang có. Profile xuất
 ra chỉ gồm tên, phiên bản, bộ lọc game và cấu hình trường RAM.
 
+## Tìm block bằng lời
+
+Trong **RAM Thor → Tìm block dữ liệu**, nhập “Tìm HP của unit”, “tìm máu của nhân
+vật” hoặc “Find unit health”. Bản đầu hỗ trợ yêu cầu HP, tiếng Việt có/không dấu
+và tên gọi khác trong profile. Kết quả tìm trong trường số đã nạp, không gọi AI
+trực tuyến và chưa tự dò RAM. Cặp phù hợp có nút **Tạo thanh HP từ các block này**.
+
+Người tạo profile dùng **Dữ liệu → Mô tả block để tìm bằng lời** để chọn HP hiện
+tại/tối đa, đối tượng/nhóm dùng chung, unit cố định hay đang chọn, tên hiển thị và
+đánh dấu đã đối chiếu trong game. Các mô tả được giữ khi xuất/nhập profile và dự
+án. Sửa địa chỉ hoặc cấu hình đọc làm mất trạng thái kiểm chứng cũ; xóa trường
+cũng xóa mô tả tương ứng.
+
+Yêu cầu “unit đang chọn” chỉ được dùng với cặp block mà profile ghi rõ theo unit
+đang chọn và người tạo đã đánh dấu kiểm chứng. Unit cố định hoặc chưa rõ đối
+tượng không được thay thế cho yêu cầu đó. Công cụ không suy ra ý nghĩa này chỉ
+từ địa chỉ hay con trỏ. Không tự ghép HP của hai đối tượng hoặc chọn bừa khi có
+nhiều ứng viên. Dấu kiểm chứng là thông tin do người tạo profile khai báo, không
+phải kết luận mà ô tìm kiếm tự chứng minh.
+
 ## Tìm dữ liệu của game chưa có profile
 
 Kết nối máy trong RAM Thor. Chọn vùng RAM và kiểu số, nhập giá trị đã biết hoặc để
