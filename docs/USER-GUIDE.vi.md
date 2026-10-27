@@ -12,7 +12,7 @@ Mở địa chỉ hiển thị trong terminal, thường là `http://127.0.0.1:5
 
 Mặc định là tiếng Anh. Chọn **Tiếng Việt** ở menu trên cùng; trình duyệt ghi nhớ lựa chọn. Nội dung mẫu của dự án mới theo ngôn ngữ đã chọn. Đổi ngôn ngữ giao diện không dịch lại văn bản trong dự án đã có.
 
-Bên trái là Scene, Components và Assets; giữa là canvas 2D, Preview và công cụ dữ liệu. Inspector ở bên phải: **Content** chỉnh nội dung, **Appearance** chỉnh hình thức, **Behavior** chỉnh tương tác. Cấu hình dữ liệu và script toàn dự án nằm trong **Project Tools**.
+**Design** chứa Layers, Insert, Assets, canvas và Inspector; **Code** sửa tệp nguồn; **Test** xem thử tương tác. **Data** chỉnh dữ liệu mẫu. **Device** kiểm tra kết quả chạy; công cụ đọc RAM và ảnh ROM nằm trong mục Nâng cao thu gọn.
 
 ## Tạo, lưu và xuất companion
 
@@ -27,7 +27,7 @@ Có thể mở lại dự án hoặc nhập pack có sẵn. Lua và asset nhập
 
 ## Dữ liệu game và Lua
 
-Studio không tự tìm ý nghĩa RAM. Trong Project Tools, khai báo địa chỉ đã xác minh hoặc con trỏ cộng offset, kiểu số, mask và shift. Pack đơn giản có thể dùng giá trị manifest gốc không cần Lua riêng. Với logic phức tạp, tạo/nhập Lua, chỉnh rồi chọn **Save and use this script**. Xem thêm [quy trình kỹ thuật bằng tiếng Anh](AUTHORING.md).
+Sửa module Lua, manifest, layout và CSS trong **Code**, hoặc dùng Codex với thư mục nguồn đã kết nối. Lưu module không đổi script gốc; dùng **Use as entry** để chọn riêng. Trường RAM đã xác minh, con trỏ, mask và shift nằm trong **Data → Nâng cao: trường RAM gốc**. Đã bỏ các bộ dò HP/giá trị và trình tạo thanh chỉ số từ kết quả dò.
 
 Preview không chạy ROM hay Lua tùy ý. Dữ liệu Lua trực tiếp lấy từ companion tương ứng đang chạy trong giả lập. RAM Inspector và trường RAM có sẵn hỗ trợ GBA EWRAM/IWRAM; không mặc định áp dụng cùng địa chỉ hoặc công cụ cho GB/GBC.
 

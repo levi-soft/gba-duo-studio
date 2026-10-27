@@ -3,13 +3,10 @@
   import {onMount,onDestroy} from 'svelte';
   import JSZip from 'jszip';
   import RamMemoryTable from './RamMemoryTable.svelte';
-  import MemoryScanner from './MemoryScanner.svelte';
   import RomGraphics from './RomGraphics.svelte';
-  import HpDiscovery from './HpDiscovery.svelte';
-  import type {HpCandidate} from './hp-discovery.js';
   import {decodeRamRange,ramPageAddress} from './ram-data.js';
-  import type {BridgeInfo,EncodedRamRange,DataValues,Manifest,MemoryType,GraphicsSpec} from './types.js';
-  let {manifest,onsave,onbar,onprofile,onimage,onidentity,onhp}:{manifest:Manifest;onsave:(info:BridgeInfo,name:string,address:number,type:MemoryType,value:number)=>void;onbar:(current:string,maximum:string)=>void;onprofile:(text:string)=>void;onimage:(key:string,spec:GraphicsSpec,info:BridgeInfo,preview:string)=>void;onidentity:(info:BridgeInfo)=>void;onhp:(info:BridgeInfo,candidate:HpCandidate,current:number,maximum:number,subject:string)=>void}=$props();
+  import type {BridgeInfo,EncodedRamRange,DataValues,Manifest,GraphicsSpec} from './types.js';
+  let {manifest,onimage,onidentity}:{manifest:Manifest;onimage:(key:string,spec:GraphicsSpec,info:BridgeInfo,preview:string)=>void;onidentity:(info:BridgeInfo)=>void}=$props();
   interface Packet extends BridgeInfo {ranges?: (EncodedRamRange & {name?:string})[];frame?:number;paused?:boolean}
   let devices=$state<{serial:string;state:string;model:string}[]>([]),serial=$state(''),info=$state<Packet|null>(null),error=$state(''),busy=$state(false),stale=$state(false);
   let address=$state('0x02000000'),length=$state(256),watching=$state(false),memory=$state<{address:number;bytes:Uint8Array}|null>(null),updated=$state('');
@@ -63,20 +60,21 @@
 </script>
 <section class="ram-panel">
 
-  <h2>{$uiText("Bộ nhớ game trực tiếp")}</h2>
+  <h2>{$locale==='vi'?'Kiểm tra companion trên thiết bị':'Companion runtime inspection'}</h2>
   <p>{$uiText("Mở game trong GBA Duo Plus, bật Studio Connection, kết nối USB và cho phép gỡ lỗi USB.")}</p>
   <div class="ram-actions"><select aria-label={$uiText("Thiết bị Thor")} bind:value={serial}><option value="">{$uiText("Chọn thiết bị…")}</option>{#each devices as device}<option value={device.serial} disabled={device.state!=='device'}>{device.model} · {device.state}</option>{/each}</select><button onclick={refreshDevices}>{$uiText("Làm mới thiết bị")}</button><button class="primary" disabled={busy||!serial} onclick={connect}>{$uiText("Kết nối Thor")}</button></div>
   {#if error}<p class="error" role="alert">{$uiText(error)}</p>{/if}
   {#if info}<div class:stale class="ram-info"><strong>{info.gameCode||'GBA'} · Frame {info.frame}</strong><span>CRC32: {info.crc32} {$uiText("(tùy chọn)")}</span><span>{info.paused?$uiText("Game đang tạm dừng"):$uiText("Game đang chạy")} · {stale?$uiText("Mất kết nối · đang giữ dữ liệu lần cuối"):$uiText("Cập nhật ")+updated}</span></div>{/if}
-  <HpDiscovery {info} {request} oncreate={onhp} />
-  <MemoryScanner {info} {request} {manifest} {onsave} {onbar} {onprofile} />
-  <RomGraphics {manifest} {info} {request} oncreate={onimage} />
+  <div class="ram-actions"><button disabled={busy||!info} onclick={readLua}>{$uiText("Đọc dữ liệu Lua hiện tại")}</button></div>
+  <details><summary>{$locale==='vi'?'Nâng cao: ảnh từ ROM':'Advanced: ROM graphics'}</summary><RomGraphics {manifest} {info} {request} oncreate={onimage} /></details>
+  <details><summary>{$locale==='vi'?'Nâng cao: đọc và chụp RAM':'Advanced: read and capture RAM'}</summary>
   <div class="ram-actions"><label>{$uiText("Địa chỉ")}<input aria-label={$uiText("Địa chỉ RAM")} bind:value={address} placeholder="0x02000000" /></label><label>{$uiText("Số byte")}<input aria-label={$uiText("Số byte RAM")} type="number" min="1" max="4096" bind:value={length} /></label><button disabled={busy||!info||watching} onclick={readOnce}>{$uiText("Đọc một lần")}</button><button class:chosen={watching} disabled={!info} onclick={toggleWatch}>{watching?$uiText("Dừng theo dõi"):$uiText("Theo dõi 5 lần/giây")}</button></div>
   <p class="ram-hint">{$uiText("EWRAM: 0x02000000–0x0203FFFF · IWRAM: 0x03000000–0x03007FFF. Dữ liệu byte thô, chưa tự biết ý nghĩa HP/tiền/trạng thái.")}</p>
   <div class="ram-actions"><label>{$uiText("Độ rộng vùng đọc")}<select aria-label={$uiText("Kích thước vùng RAM")} value={length} onchange={(e)=>length=Number(e.currentTarget.value)}>{#each [16,64,256,1024,4096] as count}<option value={count}>{count} byte · {count/16} {$uiText("dòng")}</option>{/each}{#if ![16,64,256,1024,4096].includes(Number(length))}<option value={length}>{length} byte</option>{/if}</select></label><button disabled={busy||watching||!info||ramPageAddress(Number(address),Number(length),-1)==null} onclick={()=>changePage(-1)}>{$uiText("← Vùng trước")}</button><button disabled={busy||watching||!info||ramPageAddress(Number(address),Number(length),1)==null} onclick={()=>changePage(1)}>{$uiText("Vùng tiếp →")}</button></div>
   {#if memory}<RamMemoryTable {memory} {changed} />{:else}<p class="ram-hint">{$uiText("Mặc định 256 byte = 16 dòng. Bấm Đọc một lần hoặc Theo dõi để xem bảng địa chỉ, hex và chữ ASCII.")}</p>{/if}
-  <div class="ram-actions"><button disabled={busy||!info} onclick={capture}>{$uiText("Chụp EWRAM + IWRAM → ZIP")}</button><button disabled={busy||!info} onclick={readLua}>{$uiText("Đọc dữ liệu Lua hiện tại")}</button></div>
+  <div class="ram-actions"><button disabled={busy||!info} onclick={capture}>{$uiText("Chụp EWRAM + IWRAM → ZIP")}</button></div>
   {#if captures.length}<ul>{#each captures as item}<li>{item.name}</li>{/each}</ul>{/if}
+  </details>
   {#if lua}<pre>{JSON.stringify(lua,null,2)}</pre>{:else if info}<p class="ram-hint">{$uiText("Không có dữ liệu Lua đã lấy. Game chưa gán pack vẫn có thể đọc/chụp RAM.")}</p>{/if}
 </section>
 <style>.ram-panel{padding:20px;overflow:auto;flex:1;min-width:0;background:#252d3a}.ram-panel h2{margin:0;font-size:18px}.ram-panel p{font-size:12px;color:#a5b6cb;line-height:1.6}.ram-actions{display:flex;align-items:end;gap:9px;flex-wrap:wrap;margin:16px 0}.ram-actions input,.ram-actions select{font-size:12px}.ram-actions label{max-width:180px;font-size:11px;margin:0}.ram-info{display:flex;flex-wrap:wrap;gap:16px;padding:14px;background:#254333;border:1px solid #4b7f65;color:#bde1c9;border-radius:5px;font-size:12px}.ram-info.stale{background:#514029;border-color:#98764b;color:#efcc99}.ram-panel pre{max-height:400px;overflow:auto;background:#1e2837;padding:12px;font:11px/1.6 Consolas,monospace}.ram-hint,.ram-panel li{font-size:11px!important;color:#98aac2}.ram-actions button{font-size:12px}</style>

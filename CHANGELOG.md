@@ -1,5 +1,14 @@
 # Changelog
 
+## Workspace overhaul (0.3.0-beta.1 source update)
+
+- Separate Design, Code and Test workspaces with a plain-file Codex workflow.
+- Source-folder reload/conflict protection, modular Lua editing, bounded undo and explicit drop placement.
+- Keep native pack metadata, source modules and assets; simplify advanced memory/device tools.
+- Retain English and Vietnamese UI and add narrow-screen dock switching.
+- Update the transitive undici development dependency to 7.30.1.
+
+
 ## 0.3.0-beta.1
 
 - Game-neutral visual editor with a dedicated preview implementation.

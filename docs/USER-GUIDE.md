@@ -12,7 +12,7 @@ Open the address shown in the terminal, normally `http://127.0.0.1:5173`. Keep S
 
 English is the default. Choose **Tiếng Việt** in the top menu; the browser remembers the choice. Newly created starter content follows that language. Switching language does not translate text in existing companion projects.
 
-The left side contains Scene, Components and Assets. The center contains the 2D design canvas, Preview and data tools. Inspector is on the right: **Content** edits values, **Appearance** edits visual style and **Behavior** edits interactions. Global data/script settings are in **Project Tools**.
+Use **Design** for Layers, Insert, Assets, canvas and Inspector; **Code** for source files; **Test** for interactive preview. **Data** edits sample values. **Device** checks runtime output; raw RAM and ROM graphics tools are collapsed under Advanced.
 
 ## Create, save and export
 
@@ -27,7 +27,7 @@ You can reopen a project or import an existing pack. Imported Lua and assets are
 
 ## Game data and Lua
 
-Studio does not automatically discover RAM meanings. In Project Tools, configure verified direct addresses or pointer-plus-offset fields, numeric types, masks and shifts. Simple packs can use native manifest values without custom Lua. For advanced logic, import/create a Lua script, edit it and choose **Save and use this script**. See [advanced authoring](AUTHORING.md).
+Edit Lua modules, manifest, layout and CSS in **Code**, or use Codex in the connected source folder. Applying a Lua module does not change the entry point; use **Use as entry** explicitly. Verified direct/pointer fields, masks and shifts remain under **Data → Advanced: native RAM fields**. Automatic HP/value discovery and bar-generation wizards have been removed.
 
 The preview does not execute ROMs or arbitrary Lua. Live scripted values come from the matching companion running inside the emulator. Built-in RAM fields/inspector cover GBA EWRAM/IWRAM; do not assume the same addresses or tools work for GB/GBC.
 

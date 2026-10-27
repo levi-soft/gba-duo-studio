@@ -1,8 +1,7 @@
 # GBA Duo Studio
 
-Mới: [profile dữ liệu và block chỉ số không cần viết code](docs/DATA-BLOCKS.vi.md).
-Nhập cấu hình RAM đã biết, chọn block để tạo thanh chỉ số và xem dữ liệu thật;
-công cụ dò RAM chỉ cần dùng khi game chưa có profile.
+Studio tập trung vào Design, Code và Test. Codex sửa tệp trong thư mục dự án,
+Studio đọc lại để chỉnh tiếp bằng giao diện.
 
 Bản phát triển đã có [công cụ xem ROM/đồ họa](docs/ROM-GRAPHICS.vi.md) và block ảnh
 đọc tài nguyên từ ROM của người chơi, không cần đóng gói PNG của game.
@@ -42,8 +41,8 @@ Quy trình: **thiết kế trong Studio → xuất Pack ZIP → nhập/gán tron
 1. Tạo dự án từ mẫu trung lập; chọn kích thước màn hình thiết kế.
 2. Kéo thành phần vào Scene/canvas. Inspector có Content, Appearance và Behavior.
 3. Thêm ảnh/font của bạn, dữ liệu mẫu, tab, danh sách và điều kiện hiển thị.
-4. Trong Project Tools, khai báo địa chỉ RAM trực tiếp hoặc con trỏ + offset. Có kiểu signed/unsigned, mask và shift. Game đơn giản có thể không cần Lua.
-5. Nếu cần xử lý riêng, nhập hoặc sửa Lua, rồi chọn script chính ngay trong Project Tools. Studio không thực thi Lua tùy ý trên PC.
+4. Data dùng để sửa dữ liệu xem thử. Cấu hình trường RAM đã biết nằm trong mục Nâng cao.
+5. Sửa Lua, manifest, layout và CSS trong Code hoặc bằng Codex trong thư mục nguồn. Chọn script gốc bằng thao tác riêng.
 6. Nhập mã game trong Project, xuất ZIP và nhập ZIP vào GBA Duo. Kiểm tra trên thiết bị thật.
 
 Studio không tự suy ra địa chỉ RAM hoặc cơ chế của mọi game. Người tạo companion vẫn cần tìm địa chỉ và viết logic riêng khi cần. RAM Inspector hỗ trợ đọc dữ liệu qua ADB với bản giả lập có cầu nối tương thích.
@@ -62,5 +61,3 @@ Lệnh thứ hai tạo ZIP mã nguồn trong `.studio-runtime/distribution/`, kh
 Giấy phép: GPL-3.0-only. Xem [NOTICE.md](NOTICE.md) để biết nguồn CSS tương thích và thư viện. Giấy phép Studio không thay đổi quyền sở hữu asset hay companion do bạn tạo.
 
 Studio do [levi-soft](https://github.com/levi-soft) duy trì, tạo companion cho [GBA Duo của khumam](https://github.com/khumam/gba-duo). Xin cảm ơn tác giả và các cộng tác viên GBA Duo đã phát triển giả lập và định dạng companion gốc. Đây là công cụ cộng đồng độc lập, không phải giả lập hay simulator chính thức.
-
-Dò dữ liệu theo hướng dẫn: [tìm HP nhân vật mà không nhập địa chỉ RAM](docs/HP-DISCOVERY.vi.md). Luồng thử nghiệm vẫn cần thay đổi HP trong game và đối chiếu ứng viên.

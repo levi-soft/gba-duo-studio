@@ -12,10 +12,11 @@
   import { styleTargets } from './style-schema.js';
   import { styleValues } from './style-model.js';
   import {applyPulseValues} from './pulse-values.js';
+  import {dropPosition,type DropPosition} from './drop-placement.js';
   import type {Project,DataValues,StyleValues} from './types.js';
   interface Rect {x:number;y:number;w:number;h:number}
   interface Transform {x?:number;y?:number;width:number;height:number;move?:boolean}
-  interface Props {project:Project;data?:DataValues;selected?:string;inspectTarget?:string;inspectState?:string;oninspect?:(snapshot:{values:Record<string,string>;sources:Record<string,string>})=>void;checkTransparency?:boolean;grid?:{visible:boolean;snap:boolean;size:number};interactive?:boolean;onselect?:(id:string)=>void;onfont?:(font:string)=>void;ondrop?:(payload:string,id?:string)=>void;onerror?:(message:string)=>void;ontransform?:(id:string,result:Transform)=>void;zoom?:number}
+  interface Props {project:Project;data?:DataValues;selected?:string;inspectTarget?:string;inspectState?:string;oninspect?:(snapshot:{values:Record<string,string>;sources:Record<string,string>})=>void;checkTransparency?:boolean;grid?:{visible:boolean;snap:boolean;size:number};interactive?:boolean;onselect?:(id:string)=>void;onfont?:(font:string)=>void;ondrop?:(payload:string,id?:string,position?:DropPosition)=>void;onerror?:(message:string)=>void;ontransform?:(id:string,result:Transform)=>void;zoom?:number}
   let { project, data, selected, inspectTarget='self', inspectState='normal', oninspect, checkTransparency=false, grid = {visible:true,snap:true,size:32}, interactive = false, onselect, onfont, ondrop, onerror, ontransform, zoom = 0.4 }:Props = $props();
   const runtimeData=$derived(data??project.data);
   let activeRenderer:ReturnType<typeof createRenderer>|undefined,refreshLayout:(()=>void)|undefined;
@@ -136,10 +137,25 @@
     const el = e.composedPath().find((el):el is HTMLElement => el instanceof HTMLElement && !!el.id && !!el.dataset.type);
     if (el) { e.preventDefault(); e.stopImmediatePropagation(); onselect?.(el.id); }
   }
+  let dropGuide=$state<{x:number;y:number;w:number;h:number;position:DropPosition;horizontal:boolean}|null>(null);
+  function dropTarget(e:DragEvent){
+    const el=e.composedPath().find((item):item is HTMLElement=>item instanceof HTMLElement&&!!item.id&&!!item.dataset.type);
+    if(!el)return {id:project.layout.id,position:'inside' as DropPosition};
+    const ref=walk(project.layout).find(r=>r.node.id===el.id),rect=el.getBoundingClientRect();
+    const parent=ref?.parent&&'type'in ref.parent?ref.parent:undefined;
+    const horizontal=parent?.type==='row'||parent?.style?.['flex-direction']==='row';
+    const fraction=horizontal?(e.clientX-rect.x)/Math.max(1,rect.width):(e.clientY-rect.y)/Math.max(1,rect.height);
+    const position=dropPosition(['row','column','box','pages'].includes(el.dataset.type??''),fraction,el.id===project.layout.id);
+    const bounds=host.getBoundingClientRect();
+    dropGuide={x:rect.x-bounds.x,y:rect.y-bounds.y,w:rect.width,h:rect.height,position,horizontal};
+    return {id:el.id,position};
+  }
+  function dragOver(e:DragEvent){e.preventDefault();if(!interactive)dropTarget(e);}
   function drop(e:DragEvent) {
     e.preventDefault();
-    const el = e.composedPath().find((el):el is HTMLElement => el instanceof HTMLElement && !!el.id && !!el.dataset.type);
-    ondrop?.(e.dataTransfer?.getData('text/plain')??'', el?.id);
+    if(interactive)return;
+    const target=dropTarget(e);dropGuide=null;
+    ondrop?.(e.dataTransfer?.getData('text/plain')??'',target.id,target.position);
   }
   $effect(() => { JSON.stringify(project); selected; inspectTarget; inspectState; interactive; ready; render(); });
   $effect(() => { JSON.stringify(runtimeData); if(activeRenderer){activeRenderer.update(runtimeSnapshot());refreshLayout?.();} });
@@ -155,9 +171,10 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="viewport" style:width={`${project.width * zoom}px`} style:height={`${project.height * zoom}px`} ondragover={(e) => e.preventDefault()} ondrop={drop}>
+<div class="viewport" style:width={`${project.width * zoom}px`} style:height={`${project.height * zoom}px`} ondragover={dragOver} ondragleave={()=>dropGuide=null} ondrop={drop}>
   <div class="device" bind:this={host} style:width={`${project.width}px`} style:height={`${project.height}px`} style:transform={`scale(${zoom})`}></div>
   {#if grid.visible && !interactive}<div class="design-grid" style:background-size={`${grid.size*zoom}px ${grid.size*zoom}px`}></div>{/if}
+  {#if dropGuide&&!interactive}<div class="drop-guide" class:inside={dropGuide.position==='inside'} style:left={`${dropGuide.x+(dropGuide.horizontal&&dropGuide.position==='after'?dropGuide.w:0)}px`} style:top={`${dropGuide.y+(!dropGuide.horizontal&&dropGuide.position==='after'?dropGuide.h:0)}px`} style:width={`${dropGuide.position==='inside'||!dropGuide.horizontal?dropGuide.w:3}px`} style:height={`${dropGuide.position==='inside'||dropGuide.horizontal?dropGuide.h:3}px`}></div>{/if}
   {#if selectionRect && !interactive}
     <div class="transform-box" style:left={`${selectionRect.x*zoom}px`} style:top={`${selectionRect.y*zoom}px`} style:width={`${selectionRect.w*zoom}px`} style:height={`${selectionRect.h*zoom}px`}>
       <button class="move-handle" title={$uiText("Kéo để di chuyển tự do")} onpointerdown={(e) => transform(e)}>✥</button>
@@ -166,6 +183,7 @@
   {/if}
 </div>
 <style>
+  .drop-guide{position:absolute;pointer-events:none;background:#89d9c0;z-index:5;box-shadow:0 0 0 1px #152a37}.drop-guide.inside{background:#89d9c022;border:2px solid #89d9c0}
   .viewport { position: relative; flex-shrink: 0; box-shadow: 0 0 0 1px #647286, 0 12px 48px #0007; background: #101e30; }
   .device { container-type:size; transform-origin: top left; overflow: hidden; position: absolute; left: 0; top: 0; }
   .design-grid{position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(#9bbce126 1px,transparent 1px),linear-gradient(90deg,#9bbce126 1px,transparent 1px);z-index:1}

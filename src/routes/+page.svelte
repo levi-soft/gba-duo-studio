@@ -5,18 +5,13 @@
   import { onMount } from 'svelte';
   import {loadProjectDraft,saveProjectDraft} from '../lib/studio/project-storage.js';
   import LiveMemoryBar from '../lib/studio/LiveMemoryBar.svelte';
-  import ScriptEditor from '../lib/studio/ScriptEditor.svelte';
   import MemoryFields from '../lib/studio/MemoryFields.svelte';
-  import FieldDescriptions from '../lib/studio/FieldDescriptions.svelte';
+  import {reconcileFieldInfo} from '../lib/studio/data-profiles.js';
   import RamInspector from '../lib/studio/RamInspector.svelte';
-  import {registerMemoryBlock} from '../lib/studio/memory-scan.js';
-  import {parseDataProfile,applyDataProfile,parseFieldInfo,reconcileFieldInfo} from '../lib/studio/data-profiles.js';
-  import {insertBoundBar} from '../lib/studio/data-blocks.js';
-  import {insertDiscoveredHp,type HpCandidate} from '../lib/studio/hp-discovery.js';
   import {insertGraphicsBlock} from '../lib/studio/graphics-blocks.js';
   import {sameGraphicsSource} from '../lib/studio/rom-graphics.js';
   import {validateGameInfo} from '../lib/studio/memory-values.js';
-  import type {BridgeInfo,MemoryType,FieldInfo,GraphicsSpec} from '../lib/studio/types.js';
+  import type {BridgeInfo,GraphicsSpec} from '../lib/studio/types.js';
   import Preview from '../lib/studio/Preview.svelte';
   import TabFont from '../lib/studio/TabFont.svelte';
   import SkinEditor from '../lib/studio/SkinEditor.svelte';
@@ -32,7 +27,13 @@
   import {sceneRows,revealAncestors} from '../lib/studio/scene.js';
   import {bindingFields,updateDataValue} from '../lib/studio/bindings.js';
   import { labels, clone, uid, widget, createProject, walk, removeNode, moveNode, validate, exportPack, importPack, dataPaths, ensureIds, migrateDefaultCanvasPadding, appendTab, createTabs } from '../lib/studio/project.js';
+  import SourceWorkspace from '../lib/studio/SourceWorkspace.svelte';
+  import FolderWorkspace from '../lib/studio/FolderWorkspace.svelte';
+  import QuickLayout from '../lib/studio/QuickLayout.svelte';
+  import {cloneProject,rememberProject} from '../lib/studio/source-project.js';
+  import {insertNodeAt,moveNodeTo,type DropPosition} from '../lib/studio/drop-placement.js';
   import './studio.css';
+  import './workspace.css';
   import type {Project,LayoutNode,LayoutEntry,TreeRef,DataValues,JsonValue,Skin,MemorySpec,StyleValues} from '../lib/studio/types.js';
   type InputEvent=Event & {currentTarget:HTMLInputElement};
   interface Transform {x?:number;y?:number;width:number;height:number;move?:boolean}
@@ -62,7 +63,7 @@
       if(bound)selected=bound.node.id;mode='2d';return;
     }
     const parent=container(project,selected);if(!parent)throw Error('Select a container in Scene first.');
-    const next=clone(project);const id=insertGraphicsBlock(next,parent.id,key,spec,info);validate(next);
+    const next=cloneProject(project);const id=insertGraphicsBlock(next,parent.id,key,spec,info);validate(next);
     edit(p=>{p.manifest=next.manifest;p.layout=next.layout;p.data=next.data;},'ROM image block created.');
     graphicsProject=JSON.stringify([project.layout.id,project.manifest.match]);
     observeGraphicsIdentity(info);graphicsPreview={...graphicsPreview,[key]:preview};selected=id;mode='2d';
@@ -71,42 +72,24 @@
   const previewData=$derived({...((liveEnabled ? (liveData ? {...project.data,...liveData} : {}) : project.data)),...graphicsPreview});
   function setMemoryFields(values:Record<string,MemorySpec>){edit(p=>{p.manifest.studioFieldInfo=reconcileFieldInfo(p.manifest.values??{},values,p.manifest.studioFieldInfo);p.manifest.values=values;for(const name of Object.keys(values))if(!Object.hasOwn(p.data,name))Object.defineProperty(p.data,name,{value:0,enumerable:true,writable:true,configurable:true});},$uiText("Đã cập nhật trường RAM của dự án."));}
 
-  function setFieldDescriptions(info:Record<string,FieldInfo>){
-    const clean=parseFieldInfo(info,project.manifest.values??{});
-    edit(p=>{p.manifest.studioFieldInfo=clean;},'Block descriptions saved.');
-  }
-  function importDataProfile(text:string){
-    const next=clone(project);applyDataProfile(next,parseDataProfile(text));validate(next);
-    edit(p=>{p.manifest=next.manifest;p.data=next.data;},'Data profile imported.');
-  }
-  function saveMemoryBlock(info:BridgeInfo,name:string,address:number,type:MemoryType,value:number){
-    const next=clone(project);registerMemoryBlock(next,info,name,address,type,value);validate(next);
-    edit(p=>{p.manifest=next.manifest;p.data=next.data;},'Data block saved.');
-  }
-  function addMemoryBar(current:string,maximum:string){
-    const parent=container(project,selected);if(!parent)throw Error('Select a container in Scene first.');
-    const next=clone(project);const id=insertBoundBar(next,parent.id,current,maximum);validate(next);
-    edit(p=>{p.layout=next.layout;},'Bound progress bar created.');selected=id;mode='2d';
-  }
-  function addDiscoveredHp(info:BridgeInfo,candidate:HpCandidate,current:number,maximum:number,subject:string){
-    const parent=container(project,selected);if(!parent)throw Error('Select a container in Scene first.');
-    const next=clone(project);const id=insertDiscoveredHp(next,parent.id,info,candidate,current,maximum,subject);validate(next);
-    edit(p=>{p.layout=next.layout;p.manifest=next.manifest;p.data=next.data;},'HP bar created. Maximum HP is fixed; verify after loading saves.');selected=id;mode='2d';
-  }
-
   let mode = $state('2d'), dock = $state('output'), leftTab = $state('scene');
+  let outputExpanded=$state(false),mobileDock=$state('canvas');
+  let folderTools: {saveWorkspace:()=>Promise<void>;clearWorkspace:()=>void;connected:()=>boolean}|undefined;
+  const copy=(en:string,vi:string)=>$locale==='vi'?vi:en;
+  function replaceDocument(next:Project,reason:string){history=rememberProject(history,project);future=[];project=next;selected=next.layout.id;dirty=false;log=reason;requestAnimationFrame(fitCanvas);}
+  function applySource(next:Project){history=rememberProject(history,project);future=[];project=next;dirty=true;log=copy('Source changes applied','Đã áp dụng thay đổi mã nguồn');}
+  function quickStyle(changes:Record<string,string>){edit(p=>{const n=requiredNode(p);n.style??={};for(const [key,value]of Object.entries(changes)){if(value==='')delete n.style[key];else n.style[key]=value;}});}
   let zoom = $state(0.4), log = $state($uiText("Sẵn sàng. Kéo thành phần từ thư viện vào màn hình hoặc cây Scene."));
   let error = $state(''), saved = $state($uiText("Chưa lưu")), hydrated = $state(false);
-  let history = $state<Project[]>([]), future = $state<Project[]>([]), dirty = $state(false);
-  let showNew = $state(false), showSettings = $state(false), showProjectTools = $state(false);
+  let history = $state<Project[]>([]), future = $state<Project[]>([]), dirty = $state(false), sourceDirty=$state(false);
+  let showNew = $state(false), showSettings = $state(false);
   let inspectorTab = $state('content');
   let importInput:HTMLInputElement, assetInput:HTMLInputElement, projectInput:HTMLInputElement;
-  let dataText = $state(''), cssText = $state(''), layoutText = $state('');
   let editorError = $state('');
   let leftWidth = $state(246), rightWidth = $state(340), outputHeight = $state(142), filesHeight = $state(340);
   let customSizeMode = $state(false);
   let tabCount = $state(2), tabPosition = $state('bottom');
-  let showTemplates=$state(false),dataMode=$state('form'),fileView=$state<{path:string;text:string}|null>(null);
+  let showTemplates=$state(false),fileView=$state<{path:string;text:string}|null>(null);
   let sceneSearch=$state(''),assetSearch=$state('');
   let fileTab=$state('assets'),collapsed=$state<Record<string,boolean>>({});
   let checkTransparency=$state(false);
@@ -130,7 +113,7 @@
   function setActionMode(mode:string){setProp('onClick',mode==='none'?'':mode==='back'?{back:true}:mode==='navigate'?{navigate:pages[0]??''}:mode==='call'?{call:'actionName'}:{});}
   function fitCanvas() {
     const area = document.querySelector('.canvas-area');
-    if (area) zoom = Math.max(0.05, Math.min(1.5, (area.clientWidth-80)/project.width, (area.clientHeight-120)/project.height));
+    if (area) zoom = Math.max(0.05, Math.min(1.5, (area.clientWidth-80)/project.width, (area.clientHeight-72)/project.height));
   }
   const entries = $derived(walk(project.layout));
   function nodeLabel(ref:TreeRef){return ref.title ? $uiText(ref.title) : ref.node.text?.slice(0,32)??(ref.node.class?'.'+ref.node.class: $uiText(labelFor(ref.node.type)));}
@@ -152,7 +135,7 @@
   const mainPages = $derived(entries.find((r) => r.node.type === 'pages')?.node);
   function addTab() { edit((p) => { const tabs = walk(p.layout).find((r) => r.node.id === selected)?.node; if (tabs?.type !== 'tabs') throw new Error($uiText("Hãy chọn thành phần Các tab.")); appendTab(tabs); }, $uiText("Đã thêm tab. Chọn nút nội dung trong danh sách tab để thiết kế.")); }
   async function openTemplate(bytes:ArrayBuffer,file:string) {
-    const p=await importPack(bytes);history=[...history.slice(-49),clone(project)];future=[];project=p;selected=p.layout.id;mode='2d';leftTab='scene';sceneSearch='';assetSearch='';collapsed={};fileTab='assets';editorError='';
+    const p=await importPack(bytes);folderTools?.clearWorkspace();history=rememberProject(history,project);future=[];project=p;selected=p.layout.id;mode='2d';leftTab='scene';sceneSearch='';assetSearch='';collapsed={};fileTab='assets';editorError='';
     log=$uiText("Đã mở bản sao {0}. ZIP gốc không đổi; Lua và tài nguyên được giữ nguyên. Dữ liệu hiện tại là dữ liệu mẫu.", file);
     requestAnimationFrame(fitCanvas);
   }
@@ -178,7 +161,7 @@
     let stopped=false;
     (async()=>{
       try { const stored = await loadProjectDraft(); if (!stopped&&stored) { const p = migrateDefaultCanvasPadding(JSON.parse(stored)); validate(p); project = p; selected = p.layout.id; saved = $uiText("Đã khôi phục"); } else if(!stopped) project=createProject("rpg",$locale); } catch { log = $uiText("Không thể khôi phục bản lưu trước. Hãy mở file dự án nếu có."); }
-      if(!stopped){hydrated = true;if (!selected) selected = project.layout.pages?.[0]?.child.id ?? project.layout.id;}
+      if(!stopped){hydrated = true;if (!selected) selected = project.layout.pages?.[0]?.child.id ?? project.layout.id;requestAnimationFrame(fitCanvas);}
     })();
     return ()=>{stopped=true;};
   });
@@ -191,7 +174,7 @@
     return () => {cancelled=true;clearTimeout(t);};
   });
   function edit(fn:(project:Project)=>void,message = '') {
-    const before = clone(project); const next = clone(project);
+    const before = cloneProject(project); const next = cloneProject(project);
     try { fn(next); validate(next); history = [...history.slice(-49), before]; future = []; project = next; dirty = true; if (message) log = message; editorError = ''; } catch (e) { editorError = errorMessage(e); }
   }
   function setProp(key:string,value:unknown) { edit((p) => { const n = requiredNode(p); if (value === '') delete n[key]; else n[key] = value; }); }
@@ -221,12 +204,15 @@
     try { n = type === 'tabs' ? createTabs(Number(tabCount),tabPosition) : widget(type,$locale); } catch(e) { editorError=errorMessage(e); return; }
     edit((p) => { const c = container(p, target); if (!c) throw new Error($uiText("Hãy chọn một khung chứa trước.")); c.children ??= []; c.children.push(n); }, $uiText("Đã thêm {0}.", labelFor(type))); selected = n.id;
   }
-  function drop(payload:string,target=selected) {
+  function drop(payload:string,target=selected,position:DropPosition='inside') {
     if (!payload) return;
     if(payload.startsWith('font:')){const font=fonts.find(f=>f.path===payload.slice(5));if(font)applyFont(font.family,target);return;}
     if (payload.startsWith('asset:')) return insertAsset(payload.slice(6),target);
-    if (payload.startsWith('new:')) return add(payload.slice(4), target);
-    edit((p) => { const c = container(p, target); if (!c || !moveNode(p.layout, payload, c.id)) throw new Error($uiText("Không thể chuyển vào chính nó hoặc chuyển trang/mẫu lặp.")); }, $uiText("Đã chuyển thành phần vào khung chứa."));
+    if (payload.startsWith('new:')) {
+      const type=payload.slice(4),n=type==='tabs'?createTabs(Number(tabCount),tabPosition):widget(type,$locale);
+      edit(p=>insertNodeAt(p.layout,n,target,position),copy('Component inserted','Đã chèn thành phần'));selected=n.id;return;
+    }
+    edit(p=>moveNodeTo(p.layout,payload,target,position),copy('Component moved','Đã chuyển thành phần'));selected=payload;
   }
   function reorder(delta:number) {
     edit((p) => { const r = walk(p.layout).find((r) => r.node.id === selected); if (r?.index == null) throw new Error($uiText("Chỉ đổi thứ tự các thành phần cùng khung.")); const arr = editableSiblings(r); const to = r.index + delta; if (to < 0 || to >= arr.length) return; [arr[r.index], arr[to]] = [arr[to], arr[r.index]]; });
@@ -235,21 +221,21 @@
     edit((p) => { const r = walk(p.layout).find((r) => r.node.id === selected); if (r?.index == null) throw new Error($uiText("Chọn thành phần trong một khung để nhân bản.")); const n = cloneStyledTree(r.node,uid); editableSiblings(r).splice(r.index + 1, 0, n); selected = n.id; }, $uiText("Đã nhân bản thành phần."));
   }
   function erase() { edit((p) => { if (!removeNode(p.layout, selected)) throw new Error($uiText("Không xóa nút gốc của dự án hoặc mẫu lặp.")); selected = p.layout.id; }, pageOwner ? $uiText("Đã xóa trang và chuyển liên kết đến trang còn lại. Có thể hoàn tác bằng Ctrl+Z.") : $uiText("Đã xóa thành phần.")); }
-  function undo() { if (!history.length) return; future = [...future, clone(project)]; project = history.at(-1)!; history = history.slice(0, -1); }
-  function redo() { if (!future.length) return; history = [...history, clone(project)]; project = future.at(-1)!; future = future.slice(0, -1); }
+  function undo() { if (!history.length) return; future = rememberProject(future,project); project = history.at(-1)!; history = history.slice(0, -1);dirty=true; }
+  function redo() { if (!future.length) return; history = rememberProject(history,project); project = future.at(-1)!; future = future.slice(0, -1);dirty=true; }
   function keydown(e:KeyboardEvent) {
     if (e.target instanceof Element && e.target.closest('input,textarea,select,[contenteditable]')) return;
     if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
-    if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); saveProject(); }
+    if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); folderTools?.saveWorkspace(); }
     if (e.key === 'Delete' && mode === '2d') erase();
   }
   function download(blob:Blob,name:string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-  function saveProject() { download(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), project.manifest.id + '.gbastudio.json'); dirty = false; log = $uiText("Đã tải file dự án, gồm giao diện, dữ liệu mẫu và tài nguyên."); }
+  function saveProject() { download(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), project.manifest.id + '.gbastudio.json'); if(!folderTools?.connected())dirty = false; log = $uiText("Đã tải file dự án, gồm giao diện, dữ liệu mẫu và tài nguyên."); }
   async function packExport() { try { const blob = await exportPack(project); download(blob, project.manifest.id + '.zip'); log = $locale==='vi'?'Đã xuất ZIP. Nhập và gán gói trong GBA Duo để kiểm tra trên thiết bị.':'ZIP exported. Import and assign the pack in GBA Duo to test it on your device.'; dock = 'output'; } catch (e) { editorError = errorMessage(e); showSettings = true; } }
   async function openFile(e:InputEvent,pack = false) {
     const input=e.currentTarget;
     const file = input.files?.[0]; if (!file) return;
-    try { const p = pack || file.name.toLowerCase().endsWith('.zip') ? await importPack(file) : migrateDefaultCanvasPadding(JSON.parse(await file.text())); validate(p); history = [...history, clone(project)]; future = []; project = p; selected = p.layout.id; mode='2d'; leftTab='scene'; sceneSearch=''; assetSearch=''; collapsed={}; fileTab='assets'; dirty = false; log = $uiText("Đã mở {0}. Bản trước vẫn có thể khôi phục bằng Hoàn tác.", file.name); editorError = ''; requestAnimationFrame(fitCanvas); } catch (e) { editorError = errorMessage(e); }
+    try { const p = pack || file.name.toLowerCase().endsWith('.zip') ? await importPack(file) : migrateDefaultCanvasPadding(JSON.parse(await file.text())); validate(p);folderTools?.clearWorkspace(); history = rememberProject(history,project); future = []; project = p; selected = p.layout.id; mode='2d'; leftTab='scene'; sceneSearch=''; assetSearch=''; collapsed={}; fileTab='assets'; dirty = false; log = $uiText("Đã mở {0}. Bản trước vẫn có thể khôi phục bằng Hoàn tác.", file.name); editorError = ''; requestAnimationFrame(fitCanvas); } catch (e) { editorError = errorMessage(e); }
     input.value = '';
   }
   async function addAssetFiles(files:File[]) {
@@ -266,9 +252,8 @@
     try{await addAssetFiles([...input.files??[]]);}finally{input.value='';}
   }
 
-  function openData() { dataText = JSON.stringify(project.data, null, 2); cssText = project.css; layoutText = JSON.stringify(project.layout, null, 2); mode = 'data'; }
-  function applyData() { edit((p) => { p.data = JSON.parse(dataText); p.css = cssText; p.layout = ensureIds(JSON.parse(layoutText)); }, $uiText("Đã áp dụng dữ liệu và mã giao diện.")); }
-  function newProject(kind:string) { history = [...history, clone(project)]; future = []; project = createProject(kind,$locale); selected = project.layout.pages?.[0]?.child.id??project.layout.id; showNew = false; dirty = false; mode = '2d'; log = $uiText("Dự án mới. Đặt tên và mã ROM trong mục Dự án trước khi xuất pack."); }
+  function openData(){mode='data';}
+  function newProject(kind:string) {folderTools?.clearWorkspace(); history = rememberProject(history,project); future = []; project = createProject(kind,$locale); selected = project.layout.pages?.[0]?.child.id??project.layout.id; showNew = false; dirty = false; mode = '2d'; log = $uiText("Dự án mới. Đặt tên và mã ROM trong mục Dự án trước khi xuất pack."); }
   function addPage() { edit((p) => { const r = walk(p.layout).find((r) => r.node.type === 'pages')?.node; if (!r) throw new Error($uiText("Giao diện này chưa có nút Các trang.")); const name = 'trang_' + uid().slice(1, 5); const child = widget('column'); (r.pages??=[]).push({ name, child }); r.initial = name; selected = child.id; }, $uiText("Đã thêm và mở trang mới. Chọn gốc trang rồi bấm Xóa để xóa trang.")); }
   function previewPage(name:string) { edit((p) => { const root = walk(p.layout).find((r) => r.node.type === 'pages')?.node; if (root) root.initial = name; }, $uiText("Đã đổi trang khởi đầu để thiết kế.")); }
   function resizeDock(e:PointerEvent,side:string) {
@@ -288,23 +273,28 @@
 
 <svelte:head><title>{$uiText("GBA Duo Studio — Thiết kế companion")}</title><meta name="description" content={$uiText("Studio trực quan để thiết kế companion pack cho các game GBA, GBC và GB.")} /></svelte:head>
 <svelte:window onkeydown={keydown} />
-<div class="studio">
+<div class="studio" data-mode={mode} data-mobile-dock={mobileDock}>
   <header class="menubar">
     <span class="brand-icon">◈</span><strong>GBA Duo Studio</strong>
     <select class="language-picker" aria-label="Studio language" value={$locale} onchange={(event)=>setLanguage(event.currentTarget.value)}><option value="en">English</option><option value="vi">Tiếng Việt</option></select>
     <button onclick={() => showSettings = true}>{$uiText("Dự án")}</button><button onclick={() => showNew = true}>{$uiText("Mới")}</button><button onclick={() => projectInput.click()}>{$uiText("Mở dự án")}</button><button onclick={saveProject}>{$uiText("Lưu dự án")}</button><button onclick={() => showTemplates = true}>{$uiText("Thư viện mẫu")}</button>
-    <button onclick={()=>showProjectTools=true}>{$uiText("Công cụ dự án")}</button>
     <span class="project-title">{project.manifest.name}{dirty ? ' (*)' : ''}</span>
     <button class="primary compact" onclick={packExport}>{$uiText("Xuất pack ZIP ↗")}</button>
   </header>
   <div class="workspacebar">
-    <span class="workspace-label">COMPANION EDITOR <span class="badge">{$uiText("BẢN THỬ UX")}</span></span>
-    <nav aria-label={$uiText("Chế độ")}><button class:chosen={mode === '2d'} onclick={() => mode = '2d'}>▧ 2D</button><button class:chosen={mode === 'data'} onclick={openData}>{$uiText("▤ Dữ liệu")}</button><button class:chosen={mode === 'preview'} onclick={() => mode = 'preview'}>{$uiText("▶ Xem thử")}</button><button class:chosen={mode === 'ram'} onclick={() => mode = 'ram'}>◉ RAM Thor</button></nav>
-    <span class="save-indicator">● {$uiText(saved)}</span>
+    <nav aria-label={copy('Workspace mode','Chế độ làm việc')}>
+      <button class:chosen={mode==='2d'} onclick={()=>mode='2d'}>▧ {copy('Design','Thiết kế')}</button>
+      <button class:chosen={mode==='code'} onclick={()=>mode='code'}>⌘ {copy('Code','Mã nguồn')}</button>
+      <button class:chosen={mode==='preview'} onclick={()=>{mode='preview';requestAnimationFrame(fitCanvas);}}>▶ {copy('Test','Kiểm thử')}</button>
+    </nav>
+    <div class="workspace-tools"><button class:chosen={mode==='data'} onclick={openData}>{copy('Data','Dữ liệu')}</button><button class:chosen={mode==='ram'} onclick={()=>mode='ram'}>{copy('Device','Thiết bị')}</button></div>
+    <span class="save-indicator">{dirty?'● ':'✓ '}{copy(dirty?'Unsaved edits':'Browser draft','Thay đổi '+(dirty?'chưa lưu':'đã lưu trên trình duyệt'))} · {$uiText(saved)}</span>
   </div>
-  <div class="workspace" style:grid-template-columns={`${leftWidth}px minmax(350px,1fr) ${rightWidth}px`}>
+  <FolderWorkspace bind:this={folderTools} {project} {dirty} {sourceDirty} onreplace={replaceDocument} onsaved={(saved)=>{if(project===saved)dirty=false;log=copy('Project folder saved','Đã lưu thư mục dự án');}} />
+  {#if mode==='2d'}<nav class="mobile-docks" aria-label={copy('Editor panels','Các bảng thiết kế')}><button class:chosen={mobileDock==='layers'} onclick={()=>mobileDock='layers'}>{copy('Layers','Lớp')}</button><button class:chosen={mobileDock==='canvas'} onclick={()=>mobileDock='canvas'}>Canvas</button><button class:chosen={mobileDock==='inspector'} onclick={()=>mobileDock='inspector'}>Inspector</button></nav>{/if}
+  <div class="workspace" style:grid-template-columns={mode==='2d'?`${leftWidth}px minmax(0,1fr) ${rightWidth}px`:'minmax(0,1fr)'}>
     <aside class="left-dock"><button class="dock-resizer left-resizer" aria-label={$uiText("Kéo đổi rộng Scene")} onpointerdown={(e) => resizeDock(e, "left")}></button>
-      <div class="dock-tabs"><button class:chosen={leftTab === 'scene'} onclick={() => leftTab = 'scene'}>Scene</button><button class:chosen={leftTab === 'library'} onclick={() => leftTab = 'library'}>{$uiText("Thành phần")}</button></div>
+      <div class="dock-tabs"><button class:chosen={leftTab === 'scene'} onclick={() => leftTab = 'scene'}>{copy('Layers','Lớp')}</button><button class:chosen={leftTab === 'library'} onclick={() => leftTab = 'library'}>{copy('Insert','Chèn')}</button><button class:chosen={leftTab==='assets'} onclick={()=>leftTab='assets'}>Assets</button></div>
       <div class="scene-tools"><button title={$uiText("Thêm thành phần")} onclick={() => leftTab = 'library'}>{$uiText("＋ Thêm")}</button><button title={$uiText("Thêm trang")} onclick={addPage}>{$uiText("▧ Trang")}</button><button title={$uiText("Nhân bản")} onclick={duplicate}>⧉</button></div>
       <div class="scene-content">
         {#if leftTab === 'scene'}
@@ -318,6 +308,8 @@
             </div>
           {/each}
           <p class="dock-hint">{$uiText("Kéo nút vào khung chứa để đổi cha. Dùng ↑ ↓ trong Inspector để đổi thứ tự.")}</p>
+        {:else if leftTab==='assets'}
+          <AssetBrowser files={project.files} onadd={()=>assetInput.click()} onfont={applyFontAsset} onassign={assignAsset} oninsert={insertAsset} onfiles={files=>addAssetFiles(files)} />
         {:else}
           <p class="dock-hint">{$uiText("Kéo vào màn hình hoặc bấm để thêm vào khung đang chọn.")}</p>
           <div class="tab-create-options"><label>{$uiText("Số tab khi tạo")}<input aria-label={$uiText("Số tab khi tạo")} type="number" min="1" step="1" bind:value={tabCount} /></label><label>{$uiText("Vị trí thanh tab")}<select bind:value={tabPosition}><option value="bottom">{$uiText("Phía dưới")}</option><option value="top">{$uiText("Phía trên")}</option></select></label><small>{$uiText("Cấu hình cho thành phần Thanh tab. Vẫn thêm/xóa được sau khi tạo.")}</small></div>
@@ -326,34 +318,33 @@
           {/each}</div>
         {/if}
       </div>
-      <div class="filesystem" style:height={`${filesHeight}px`}><button class="dock-resizer horizontal-resizer" aria-label={$uiText("Kéo đổi cao FileSystem")} onpointerdown={(e) => resizeDock(e, "files")}></button>
-        <div class="asset-dock-tabs"><button class:chosen={fileTab === 'assets'} onclick={() => fileTab = 'assets'}>▧ Assets <span>{assetPaths.length}</span></button><button class:chosen={fileTab === 'files'} onclick={() => fileTab = 'files'}>{$uiText("▤ Tệp dự án")}</button></div>
-        {#if fileTab === 'assets'}
-          <AssetBrowser files={project.files} onadd={() => assetInput.click()} onfont={applyFontAsset} onassign={assignAsset} oninsert={insertAsset} onfiles={(files) => addAssetFiles(files)} />
-        {:else}
-          <div class="project-files"><div class="res-path">res://{project.manifest.id}/</div>
-          <button class="file" onclick={() => showSettings = true}>▤ manifest.json</button><button class="file" onclick={() => mode = '2d'}>▧ layout.json</button><button class="file" onclick={openData}>▤ style.css</button><button class="file" onclick={openData}>▤ preview-data.json</button>
-          {#each textFiles as path}<button class="file" onclick={() => inspectFile(path)}>▤ {path}</button>{/each}
-          <button class="import-pack" onclick={() => importInput.click()}>{$uiText("↥ Nhập pack ZIP có sẵn")}</button></div>
-        {/if}      </div>
+
     </aside>
     <main class="center">
-      <div class="scene-tab">{#if mainPages}<label class="page-switcher">{$uiText("Trang")}<select aria-label={$uiText("Trang đang thiết kế")} value={mainPages.initial} onchange={(e) => { const name = e.currentTarget.value; previewPage(name); const child=walk(project.layout).find((r) => r.node.type === "pages")?.node.pages?.find((p) => p.name === name)?.child;if(child)selected=child.id; }}>{#each mainPages.pages as page}<option value={page.name}>{page.name}</option>{/each}</select></label>{/if}<span>▧ {project.manifest.name}</span><small>{project.manifest.match?.gameCode?.join(', ') || $uiText("Chưa gắn game")}</small></div>
-      <div class="canvas-toolbar"><button title={$uiText("Chọn thành phần")} class:chosen={mode === '2d'} onclick={() => mode = '2d'}>↖</button><button title={$uiText("Hoàn tác Ctrl+Z")} disabled={!history.length} onclick={undo}>↶</button><button title={$uiText("Làm lại Ctrl+Shift+Z")} disabled={!future.length} onclick={redo}>↷</button><span class="divider"></span><label class="zoom"><input aria-label={$uiText("Thu phóng")} type="range" min="0.05" max="1.5" step="0.01" bind:value={zoom} />{Math.round(zoom * 100)}%</label><button title={$uiText("Vừa vùng thiết kế")} onclick={fitCanvas}>{$uiText("Vừa khung")}</button><button class:chosen={grid.visible} aria-pressed={grid.visible} title={$uiText("Hiện lưới trên bàn thiết kế")} onclick={() => setGrid("visible", !grid.visible)}>{$uiText("▦ Lưới")}</button><button class:chosen={grid.snap} aria-pressed={grid.snap} title={$uiText("Bắt dính theo lưới; giữ Alt để tạm bỏ")} onclick={() => setGrid("snap", !grid.snap)}>{$uiText("⌗ Bắt dính")}</button><label class="grid-step">{$uiText("Bước (px)")}<input aria-label={$uiText("Bước lưới (pixel)")} type="number" min="1" max="512" value={grid.size} onchange={(e) => setGrid("size", Number(e.currentTarget.value))} /></label><span class="spacer"></span><button title={$uiText("Đổi kích thước màn hình")} onclick={() => showSettings = true}>{project.width} {$uiText("×")} {project.height} ⚙</button></div>
-      <LiveMemoryBar manifest={project.manifest} projectId={project.layout.id} enabled={liveEnabled} onenabled={(value)=>liveEnabled=value} ondata={(value)=>liveData=value} onstatus={(value)=>{liveStatus=value;if(value.info)observeGraphicsIdentity(value.info);}} />
+      <div class="source-host" hidden={mode!=='code'}><SourceWorkspace {project} onchange={applySource} ondirty={value=>sourceDirty=value}/></div>
+      <div class="scene-tab" hidden={mode==='code'}>{#if mainPages}<label class="page-switcher">{$uiText("Trang")}<select aria-label={$uiText("Trang đang thiết kế")} value={mainPages.initial} onchange={(e) => { const name = e.currentTarget.value; previewPage(name); const child=walk(project.layout).find((r) => r.node.type === "pages")?.node.pages?.find((p) => p.name === name)?.child;if(child)selected=child.id; }}>{#each mainPages.pages as page}<option value={page.name}>{page.name}</option>{/each}</select></label>{/if}<span>▧ {project.manifest.name}</span><small>{project.manifest.match?.gameCode?.join(', ') || $uiText("Chưa gắn game")}</small></div>
+      <div class="canvas-toolbar" hidden={mode==='code'||mode==='data'||mode==='ram'}><button title={$uiText("Chọn thành phần")} class:chosen={mode === '2d'} onclick={() => mode = '2d'}>↖</button><button title={$uiText("Hoàn tác Ctrl+Z")} disabled={!history.length} onclick={undo}>↶</button><button title={$uiText("Làm lại Ctrl+Shift+Z")} disabled={!future.length} onclick={redo}>↷</button><span class="divider"></span><label class="zoom"><input aria-label={$uiText("Thu phóng")} type="range" min="0.05" max="1.5" step="0.01" bind:value={zoom} />{Math.round(zoom * 100)}%</label><button title={$uiText("Vừa vùng thiết kế")} onclick={fitCanvas}>{$uiText("Vừa khung")}</button><button class:chosen={grid.visible} aria-pressed={grid.visible} title={$uiText("Hiện lưới trên bàn thiết kế")} onclick={() => setGrid("visible", !grid.visible)}>{$uiText("▦ Lưới")}</button><button class:chosen={grid.snap} aria-pressed={grid.snap} title={$uiText("Bắt dính theo lưới; giữ Alt để tạm bỏ")} onclick={() => setGrid("snap", !grid.snap)}>{$uiText("⌗ Bắt dính")}</button><label class="grid-step">{$uiText("Bước (px)")}<input aria-label={$uiText("Bước lưới (pixel)")} type="number" min="1" max="512" value={grid.size} onchange={(e) => setGrid("size", Number(e.currentTarget.value))} /></label><span class="spacer"></span><button title={$uiText("Đổi kích thước màn hình")} onclick={() => showSettings = true}>{project.width} {$uiText("×")} {project.height} ⚙</button></div>
+      {#if mode!=='code'}<LiveMemoryBar manifest={project.manifest} projectId={project.layout.id} enabled={liveEnabled} onenabled={(value)=>liveEnabled=value} ondata={(value)=>liveData=value} onstatus={(value)=>{liveStatus=value;if(value.info)observeGraphicsIdentity(value.info);}} />{/if}
       {#if mode === 'ram'}
-        <RamInspector manifest={project.manifest} onsave={saveMemoryBlock} onbar={addMemoryBar} onprofile={importDataProfile} onimage={addRomImage} onidentity={observeGraphicsIdentity} onhp={addDiscoveredHp} />
+        <RamInspector manifest={project.manifest} onimage={addRomImage} onidentity={observeGraphicsIdentity} />
       {:else if mode === 'data'}
-        <div class="data-workspace"><div class="data-title"><h2>{$uiText("Dữ liệu & giao diện")}</h2><div><button class:chosen={dataMode === "form"} onclick={() => dataMode = "form"}>{$uiText("Biểu mẫu")}</button><button class:chosen={dataMode === "code"} onclick={() => { openData(); dataMode = "code"; }}>JSON / CSS</button></div>{#if dataMode === "code"}<button class="primary" onclick={applyData}>{$uiText("Áp dụng thay đổi")}</button>{/if}</div><p>{$uiText("Dữ liệu mẫu dùng để thiết kế. Trường RAM và profile tạo được bằng biểu mẫu, không cần viết Lua; Studio đọc game qua GBA Duo Plus.")}</p>{#if dataMode === "form"}<MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><FieldDescriptions manifest={project.manifest} onchange={setFieldDescriptions} /><DataEditor value={project.data} onchange={changeData} /><details><summary>{$uiText("Bảng màu & biến giao diện (")}{themeVariables.length})</summary>{#each themeVariables as variable}<label>{variable.name}<input value={variable.value} onchange={(e) => setThemeVariable(variable.name,e.currentTarget.value)} /></label>{/each}</details>{:else}<label>{$uiText("Dữ liệu mẫu JSON")}<textarea spellcheck="false" bind:value={dataText} rows="13"></textarea></label><details><summary>{$uiText("CSS nâng cao")}</summary><textarea spellcheck="false" bind:value={cssText} rows="10"></textarea></details><details><summary>{$uiText("Cấu trúc layout JSON")}</summary><textarea spellcheck="false" bind:value={layoutText} rows="14"></textarea></details>{/if}</div>
-      {:else}
+        <div class="data-workspace">
+          <div class="data-title"><h2>{copy('Preview data','Dữ liệu xem thử')}</h2><button onclick={()=>mode='code'}>{copy('Edit source files','Sửa tệp mã nguồn')}</button></div>
+          <p>{copy('Edit sample values used by the canvas. Connect Plus in Test to inspect real companion data.','Sửa dữ liệu mẫu dùng trên canvas. Kết nối Plus trong Kiểm thử để đối chiếu dữ liệu companion thật.')}</p>
+          <DataEditor value={project.data} onchange={changeData} />
+          <details><summary>{copy('Theme variables','Biến giao diện')} ({themeVariables.length})</summary>{#each themeVariables as variable}<label>{variable.name}<input value={variable.value} onchange={e=>setThemeVariable(variable.name,e.currentTarget.value)}/></label>{/each}</details>
+          <details><summary>{copy('Advanced: native RAM fields','Nâng cao: trường RAM gốc')}</summary><MemoryFields manifest={project.manifest} onchange={setMemoryFields}/></details>
+          <details><summary>{copy('Advanced: pulse and state','Nâng cao: nhấp nháy và trạng thái')}</summary><PulseRules config={project.manifest.studioPulse} fields={dataPaths(project.data).map(f=>({...f,label:f.path}))} onchange={config=>edit(p=>{const old=p.manifest.studioPulse?.bindings??{};p.manifest.studioPulse=config;for(const key of new Set([...Object.keys(old),...Object.keys(config.bindings)]))p.data[key]=false;})}/></details>
+        </div>
+      {:else if mode!=='code'}
         <div class="canvas-area">
           <div class="ruler-x">0 <span>100</span><span>200</span><span>300</span><span>400</span></div>
           <div class="canvas-meta"><span>{mode === 'preview' ? $uiText("▶ Tương tác với nút và trang") : $uiText("2D · Chọn trực tiếp trên màn hình")}</span><span class="mock-tag">{!liveEnabled?$uiText("DỮ LIỆU MẪU"):liveStatus.kind==='live'?$uiText("THOR · TRƯỜNG RAM THẬT"):liveStatus.kind==='stale'?$uiText("THOR · DỮ LIỆU CŨ"):$uiText("ĐANG CHỜ THOR")}</span></div>
-          <Preview data={previewData} inspectTarget={styleTarget} inspectState={styleState} oninspect={(value)=>styleSnapshot=value} onfont={(value)=>effectiveFont=value} {project} {selected} {zoom} {grid} {checkTransparency} interactive={mode === 'preview'} onselect={(id) => selected = id} ontransform={transformNode} onerror={(value) => error = value} ondrop={(payload, id) => drop(payload, id ?? selected)} />
+          <Preview data={previewData} inspectTarget={styleTarget} inspectState={styleState} oninspect={(value)=>styleSnapshot=value} onfont={(value)=>effectiveFont=value} {project} {selected} {zoom} {grid} {checkTransparency} interactive={mode === 'preview'} onselect={(id) => selected = id} ontransform={transformNode} onerror={(value) => error = value} ondrop={(payload, id,position) => drop(payload, id ?? project.layout.id,position)} />
           <p class="canvas-caption">{mode === '2d' ? $uiText("Chọn nút → chỉnh Inspector. Kéo thành phần vào khung chứa.") : $uiText("Các nút gọi Lua chỉ được mô phỏng; kiểm tra dữ liệu thật trên thiết bị.")}</p>
         </div>
       {/if}
-      <section class="bottom-dock" style:height={`${outputHeight}px`}><button class="dock-resizer horizontal-resizer" aria-label={$uiText("Kéo đổi cao Output")} onpointerdown={(e) => resizeDock(e, "output")}></button><div class="bottom-tabs"><button class:chosen={dock === 'output'} onclick={() => dock = 'output'}>Output</button><button class:chosen={dock === 'bindings'} onclick={() => dock = 'bindings'}>{$uiText("Trường dữ liệu")} <span>{paths.length}</span></button><span class="spacer"></span><small>{$uiText("Preview theo Thor · 369 dpi")}</small></div><div class="bottom-content">{#if editorError || error}<p class="error">⚠ {$uiText(editorError || error)}</p>{/if}{#if dock === 'output'}<p><span class="log-time">STUDIO</span> {$uiText(log)}</p><p class="muted">{project.manifest.script ? $uiText("Đã nhập script từ pack. Studio giữ file Lua khi xuất, không thực thi script.") : Object.keys(project.manifest.values??{}).length ? ($locale==='vi'?'Dự án có trường RAM trực tiếp; không cần Lua riêng để đọc các trường này.':'This project has direct RAM fields; no custom Lua is needed to read them.') : $uiText("Dự án thiết kế giao diện. Pack mới chưa có Lua đọc RAM.")}</p>{:else}<div class="binding-chips">{#each paths as field}<button title={JSON.stringify(field.value)} onclick={() => { if (node?.type === 'text') setProp('text', '{' + field.path + '}'); else if (node?.type === 'bar') setProp('value', '$' + field.path); else if (node?.type === 'list' && ('array' in field && field.array)) setProp('items', '$' + field.path); else log = $uiText("Chọn Văn bản, Thanh chỉ số hoặc Danh sách để gán trường."); }}>{('array' in field && field.array) ? '≡' : '◇'} {field.path}</button>{/each}</div>{/if}</div></section>
+      <section class="bottom-dock" style:height={outputExpanded?`${outputHeight}px`:'34px'}><button class="dock-resizer horizontal-resizer" aria-label={$uiText("Kéo đổi cao Output")} onpointerdown={(e) => resizeDock(e, "output")}></button><div class="bottom-tabs"><button class:chosen={dock === 'output'} onclick={() => {outputExpanded=dock!=='output'||!outputExpanded;dock='output';}}>Output</button><button class:chosen={dock === 'bindings'} onclick={() => {outputExpanded=dock!=='bindings'||!outputExpanded;dock='bindings';}}>{$uiText("Trường dữ liệu")} <span>{paths.length}</span></button><span class="spacer"></span><small>{$uiText("Preview theo Thor · 369 dpi")}</small></div><div class="bottom-content">{#if editorError || error}<p class="error">⚠ {$uiText(editorError || error)}</p>{/if}{#if dock === 'output'}<p><span class="log-time">STUDIO</span> {$uiText(log)}</p><p class="muted">{project.manifest.script ? $uiText("Đã nhập script từ pack. Studio giữ file Lua khi xuất, không thực thi script.") : Object.keys(project.manifest.values??{}).length ? ($locale==='vi'?'Dự án có trường RAM trực tiếp; không cần Lua riêng để đọc các trường này.':'This project has direct RAM fields; no custom Lua is needed to read them.') : $uiText("Dự án thiết kế giao diện. Pack mới chưa có Lua đọc RAM.")}</p>{:else}<div class="binding-chips">{#each paths as field}<button title={JSON.stringify(field.value)} onclick={() => { if (node?.type === 'text') setProp('text', '{' + field.path + '}'); else if (node?.type === 'bar') setProp('value', '$' + field.path); else if (node?.type === 'list' && ('array' in field && field.array)) setProp('items', '$' + field.path); else log = $uiText("Chọn Văn bản, Thanh chỉ số hoặc Danh sách để gán trường."); }}>{('array' in field && field.array) ? '≡' : '◇'} {field.path}</button>{/each}</div>{/if}</div></section>
     </main>
     <aside class="inspector">
       <button class="dock-resizer right-resizer" aria-label={$uiText("Kéo đổi rộng Inspector")} onpointerdown={(e)=>resizeDock(e,"right")}></button>
@@ -366,7 +357,7 @@
             <button role="tab" id={'inspector-tab-'+key} aria-selected={inspectorTab===key} aria-controls={'inspector-panel-'+key} class:chosen={inspectorTab===key} onclick={()=>inspectorTab=key}>{$uiText(label)}</button>
           {/each}
         </div>
-        <div class="inspector-scroll">
+        <QuickLayout {node} onstyle={quickStyle}/><div class="inspector-scroll">
           <div class="inspector-panel" id="inspector-panel-content" role="tabpanel" aria-labelledby="inspector-tab-content" hidden={inspectorTab!=='content'}>
           <details open><summary>{$uiText("Nội dung")}</summary>
             {#if node.type === 'tabs'}
@@ -414,7 +405,6 @@
           </div>
         </div>
       {:else}<div class="inspector-empty"><strong>{$uiText("Chưa chọn thành phần")}</strong><p>{$uiText("Chọn một thành phần trên màn hình hoặc trong Scene.")}</p></div>{/if}
-      <button class="inspector-project-link" onclick={()=>showProjectTools=true}>{$uiText("Công cụ dự án")} ↗</button>
     </aside>
   </div>
   <footer><span>{$uiText("◈ GBA Duo Studio · Cục bộ")}</span><span>{entries.length} {$uiText("nút ·")} {assetPaths.length} {$uiText("tài nguyên")}</span><span>{$uiText("Thiết kế dùng chung cho nhiều game · dữ liệu RAM theo từng game")}</span></footer>
@@ -436,14 +426,3 @@
 
 {#if showTemplates}<TemplateLibrary onopen={openTemplate} onclose={() => showTemplates = false} />{/if}
 {#if fileView}<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label={$uiText("Tệp tham khảo")} tabindex="-1"><div class="modal-title"><h2>{fileView.path}</h2><button onclick={() => fileView = null}>✕</button></div><p class="muted">{$uiText("Tệp gốc được giữ khi xuất. Xem mã tham khảo; studio không thực thi Lua.")}</p><pre class="source-view">{fileView.text}</pre></div></div>{/if}
-
-{#if showProjectTools}
-  <div class="modal-backdrop"><div class="modal project-tools-modal" role="dialog" aria-modal="true" tabindex="-1" aria-label={$uiText("Công cụ dự án")}>
-    <div class="modal-title"><h2>{$uiText("Công cụ dự án")}</h2><button onclick={()=>showProjectTools=false} aria-label={$uiText("Đóng")}>✕</button></div>
-    <p class="dock-hint">{$uiText("Thiết lập dùng chung cho toàn dự án, không phụ thuộc thành phần đang chọn.")}</p>
-    <details open><summary>{$uiText("Trường bộ nhớ")}</summary><MemoryFields manifest={project.manifest} onchange={setMemoryFields} /><FieldDescriptions manifest={project.manifest} onchange={setFieldDescriptions} /></details>
-    <ScriptEditor {project} onchange={(next)=>edit(p=>{p.manifest=next.manifest;p.files=next.files;},$uiText("Đã cập nhật Lua."))}/>
-    <details><summary>{$uiText("Nhấp nháy và trạng thái")}</summary><PulseRules config={project.manifest.studioPulse} fields={dataPaths(project.data).map(f=>({...f,label:f.path}))} onchange={(config)=>edit(p=>{const old=p.manifest.studioPulse?.bindings??{};p.manifest.studioPulse=config;for(const key of new Set([...Object.keys(old),...Object.keys(config.bindings)]))p.data[key]=false;},$uiText("Đã cập nhật nhịp nhấp nháy."))} /></details>
-    <p class="dock-hint">{$uiText("Lua được giữ nguyên khi nhập và xuất pack. Dữ liệu riêng của game thuộc companion, không thuộc mã nguồn Studio.")}</p>
-  </div></div>
-{/if}

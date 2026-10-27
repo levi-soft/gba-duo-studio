@@ -1,3 +1,5 @@
+> Historical documentation: discovery, profile-import and automatic bar-generation tools described below were removed from the current workspace. Use Code for source files, Data for preview values and verified fields, and Device for read-only inspection.
+
 # Tìm HP theo từng bước
 
 [English](HP-DISCOVERY.md)

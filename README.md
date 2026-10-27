@@ -2,9 +2,8 @@
 
 A local visual editor for companion interfaces: build a scene, edit properties, preview sample or live data, and export a companion ZIP.
 
-New: [reusable data profiles and no-code numeric blocks](docs/DATA-BLOCKS.md).
-Import known RAM fields, create a bound progress bar, and preview live values;
-use read-only value scans when a game has no profile yet.
+Design, Code and Test are the main workspaces. Use a plain source folder with Codex,
+then continue visually in Studio. See [the workspace workflow](docs/STUDIO-OVERHAUL.md).
 
 Development builds also offer [live ROM/graphics inspection](docs/ROM-GRAPHICS.md)
 and image blocks that load art from the player's ROM instead of bundled PNGs.
@@ -44,8 +43,8 @@ The workflow is **design in Studio → export Pack ZIP → import/assign in Plus
 - Custom canvas dimensions, visual styles, bindings, conditional classes and navigation.
 - Project save/load and companion ZIP import/export, preserving Lua and binary assets.
 - Three neutral starter templates without ROM content.
-- Project Tools for direct/pointer RAM fields, signed/unsigned values, masks, shifts and pulse configuration.
-- Import, edit and select a custom Lua entry script for game-specific logic.
+- Data for preview values; verified native RAM fields and pulse configuration remain under Advanced.
+- Code for individual Lua modules, manifest, layout, CSS and sample JSON; entry selection is explicit.
 - ADB-connected read-only memory tools for compatible emulator builds. In [GBA Duo Plus 0.1.6](https://github.com/levi-soft/gba-duo-plus/releases/tag/plus-v0.1.6), enable **Studio Connection** from the game's quick menu before connecting.
 
 The preview does not execute ROMs or Lua. Validate generated companions on the target device. Hardware input/control features depend on emulator support; exporting a layout does not require a particular fork.
@@ -70,5 +69,3 @@ The active preview implementation is in `src/lib/preview/`. See [workspace bound
 GPL-3.0-only; see [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md). The compatible baseline CSS includes adaptations from GBA Duo under its GPL license. Third-party dependency notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Studio's license does not change the rights to companion assets or scripts.
 
 Private projects, game adapters/assets, releases and historical archives are outside this source distribution. Review [SECURITY.md](SECURITY.md) before using live memory tools and [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
-
-Guided discovery: [find character HP without entering RAM addresses](docs/HP-DISCOVERY.md). This development workflow still requires in-game value changes and manual candidate verification.

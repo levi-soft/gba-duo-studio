@@ -1,0 +1,13 @@
+/* Workspace chrome stays separate from exported companion styling. */
+[hidden]{display:none!important}
+.studio{min-width:0;height:100dvh}
+.workspacebar{display:flex;gap:16px;min-height:42px;height:auto;padding:5px 12px}
+.workspacebar nav{display:flex;gap:4px}.workspace-tools{display:flex;gap:3px}.save-indicator{margin-left:auto}
+.studio:not([data-mode="2d"]) .left-dock,.studio:not([data-mode="2d"]) .inspector{display:none}
+.source-host{flex:1;min-height:0;display:flex}.source-host>section{flex:1}
+.bottom-dock{overflow:hidden;border-top-width:1px}.bottom-tabs{flex-shrink:0}
+.mobile-docks{display:none}.menubar{overflow-x:auto;min-height:44px;white-space:nowrap}.project-title{max-width:230px;overflow:hidden;text-overflow:ellipsis}
+.inspector{overflow:hidden}.canvas-toolbar{flex-shrink:0;overflow-x:auto;white-space:nowrap}.scene-tab{flex-shrink:0}
+@media(max-width:1100px){.menubar>strong{margin-right:4px}.menubar{gap:3px}.menubar>button{padding:5px}.save-indicator{font-size:10px}.workspace{grid-template-columns:210px minmax(0,1fr) 280px!important}.studio:not([data-mode="2d"]) .workspace{grid-template-columns:minmax(0,1fr)!important}}
+@media(max-width:800px){.workspace{grid-template-columns:minmax(0,1fr)!important}.mobile-docks{display:flex;padding:5px 8px;gap:6px;background:#252f3d}.mobile-docks button{flex:1}.studio[data-mobile-dock="canvas"] .left-dock,.studio[data-mobile-dock="canvas"] .inspector,.studio[data-mobile-dock="layers"] .center,.studio[data-mobile-dock="layers"] .inspector,.studio[data-mobile-dock="inspector"] .left-dock,.studio[data-mobile-dock="inspector"] .center{display:none}.studio:not([data-mode="2d"]) .center{display:flex}.dock-resizer{display:none}.workspacebar{gap:5px;flex-wrap:wrap}.workspacebar nav button{margin:0;padding:6px 8px}.save-indicator{flex-basis:100%;text-align:left}.menubar .project-title{display:none}.menubar>strong{font-size:12px}.brand-icon{display:none}.bottom-tabs small{display:none}.canvas-area{padding-left:12px;padding-right:12px}.canvas-meta{gap:8px}.canvas-toolbar .grid-step{display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
