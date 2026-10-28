@@ -5,6 +5,7 @@ import {resolve,scopedValues,interpolate} from './data.js';
 import {createRenderer} from './dom.js';
 import {prepareStylesheetCss,extractFontFaceCss,previewSelector} from './css.js';
 import {createProject,widget,exportPack,importPack,walk} from '../studio/project.js';
+import {characterCard,statsTable} from '../studio/function-blocks.js';
 
 afterEach(()=>{document.body.replaceChildren();});
 function preview(layout:unknown,data:DataValues={},options:Parameters<typeof createRenderer>[1]={}) {
@@ -13,6 +14,24 @@ function preview(layout:unknown,data:DataValues={},options:Parameters<typeof cre
  return {runtime,node};
 }
 describe('Independent Studio preview runtime',()=>{
+ it('updates reusable blocks when the selected subject changes, including zero resources and portraits',()=>{
+  const layout={type:'column',id:'blocks',children:[
+   characterCard({id:'pilot',nameField:'pilotName',levelField:'rank',portrait:'$portrait',currentHpField:'ammo',maximumHpField:'capacity',hpLabel:'Ammo'}),
+   statsTable({id:'resources',rows:[{labelField:'energyKind',field:'energy'},{label:'Credits',field:'credits'}]})
+  ]};
+  const {runtime,node}=preview(layout,{pilotName:'Aya',rank:2,portrait:'asset:aya.png',ammo:12,capacity:20,energyKind:'Battery',energy:7,credits:30});
+  const name=node.querySelector('#pilot-name'),image=node.querySelector('img'),bar=node.querySelector('#pilot-hp');
+  expect(image?.getAttribute('src')).toBe('/assets/aya.png');
+  expect(node.querySelector('#resources-label-0')?.textContent).toBe('Battery');
+  runtime.update({pilotName:'Bo',rank:4,portrait:'asset:bo.png',ammo:0,capacity:8,energyKind:'Mana',energy:0,credits:90});
+  expect(node.querySelector('#pilot-name')).toBe(name);expect(name?.textContent).toBe('Bo');
+  expect(node.querySelector('img')).toBe(image);expect(image?.getAttribute('src')).toBe('/assets/bo.png');
+  expect(node.querySelector('#pilot-hp')).toBe(bar);expect(bar?.textContent).toBe('Ammo: 0 / 8');
+  expect(node.querySelector<HTMLElement>('#pilot-hp .fill')?.style.width).toBe('0%');
+  expect(node.querySelector('#resources-value-0')?.textContent).toBe('0');
+  expect(node.querySelector('#resources-label-0')?.textContent).toBe('Mana');
+  expect(node.querySelector('#resources-value-1')?.textContent).toBe('90');
+ });
  it('validates the raw format without changing it and reports unsupported nodes',()=>{
   const source={type:'pages',state:'screen',pages:[{name:'a',child:{type:'text',text:'A'}}]};
   expect(parseLayout(source)).toEqual(source);

@@ -9,8 +9,8 @@ function collect(relative){
  if(stat.isDirectory())for(const name of fs.readdirSync(absolute))collect(path.join(relative,name));
  else files.push(relative.replaceAll('\\','/'));
 }
-for(const directory of ['src','static','scripts','docs','.github'])collect(directory);
-for(const file of ['.gitattributes','.gitignore','.npmrc','.ai-style-rules.md','package.json','package-lock.json','jsconfig.json','vite.config.js','README.md','README.vi.md','LICENSE','NOTICE.md','THIRD-PARTY-NOTICES.txt','CONTRIBUTING.md','SECURITY.md','CHANGELOG.md','Run-Studio.bat','Stop-Studio.bat'])collect(file);
+for(const directory of ['src','static','scripts','docs','.github','integration','e2e'])collect(directory);
+for(const file of ['.gitattributes','.gitignore','.npmrc','.ai-style-rules.md','package.json','package-lock.json','jsconfig.json','vite.config.js','vite.interop.config.js','playwright.config.mjs','README.md','README.vi.md','LICENSE','NOTICE.md','THIRD-PARTY-NOTICES.txt','CONTRIBUTING.md','SECURITY.md','CHANGELOG.md','Run-Studio.bat','Stop-Studio.bat'])collect(file);
 const problems=[];
 for(const file of files){
  if(/\.(gba|gbc?|nds|sav|state|apk|exe|zip|gguf|bin)$/i.test(file))problems.push(file);

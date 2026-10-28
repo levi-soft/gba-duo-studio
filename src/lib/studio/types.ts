@@ -28,7 +28,13 @@ export interface FieldInfo {
   aliases?: string[];
   verified?: boolean;
 }
-export interface GraphicsSpec {tiles:string;palette:string;width:number;height:number;lz77:boolean}
+export interface GraphicsPart {x:number;y:number;w:number;h:number;tile:number;bank:number;hflip?:boolean;vflip?:boolean}
+export interface GraphicsSpec {
+  tiles:string;palette:string;width:number;height:number;lz77:boolean;
+  kind?:'tiles'|'sprite';parts?:GraphicsPart[];
+  tilesIndirect?:boolean;paletteIndirect?:boolean;tilesOffset?:number;paletteOffset?:number;
+}
+export interface DataFieldInfo {label?:string;labelVi?:string;description?:string;kind?:'number'|'string'|'boolean'|'list';aliases?:string[]}
 export type Scalar = string | number | boolean;
 export type ExpressionOp = 'choose' | 'eq' | 'ge' | 'and' | 'or' | 'first' | 'add' | 'sub' | 'mul' | 'max' | 'mod' | 'divfloor';
 export type Expression = Scalar | {field?: string; lookup?: Expression; table?: Record<string,Scalar>; op?: ExpressionOp; args?: Expression[]};
@@ -39,6 +45,7 @@ export interface Manifest {
   values?: Record<string,MemorySpec>; studioComputed?: Record<string,Expression>; studioPulse?: PulseConfig;
   studioFieldInfo?: Record<string,FieldInfo>; studioProfileName?: string;
   studioGraphics?: Record<string,GraphicsSpec>;
+  studioDataFields?: Record<string,DataFieldInfo>;
   [key: string]: unknown;
 }
 export interface Project { studioVersion?: number; layout: LayoutNode; css: string; files: Record<string,string>; data: DataValues; manifest: Manifest; width: number; height: number; editorGrid?: {visible:boolean;snap:boolean;size:number}; [key: string]: unknown }

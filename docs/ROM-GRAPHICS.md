@@ -38,10 +38,9 @@ enable the graphics viewer. Studio remains game-neutral.
   source descriptor and does not promise live animation refresh from VRAM.
 - Custom Lua is preserved. Adding visual ROM blocks to custom-script projects is
   refused instead of silently replacing or ignoring their code.
-- The first viewer supports sequential 4bpp tile images and 16-color palettes,
-  with optional LZ77 tiles from ROM. Multipart sprite/portrait assembly, tilemap
-  layout tools, pointer-driven image sources and automatic game-art discovery
-  are further work; they are not implied by a successful raw-tile preview.
+- The viewer supports sequential 4bpp tile images, one-hop ROM pointers, and
+  up to 32 raw sprite parts. Sequential ROM tiles can use LZ77. Tilemap editing,
+  pointer chains, animation and automatic game-art discovery remain separate work.
 - Each inspection is limited to 64 KiB, split into ranges of at most 4096 bytes.
   Palette and tile bytes for one preview are read in the same inspection response.
   Unknown capabilities, wrong ROM filters, changed sessions, truncated responses,
@@ -57,3 +56,42 @@ Choose an uncompressed image size and palette, then select **Browse consecutive 
 Use **Previous page** / **Next page** to move by an entire batch, and **Previous palette** / **Next palette** to move by one 32-byte, 16-color palette. Navigation uses the batch start even after selecting a thumbnail. Failed reads preserve settings and prior results. These controls browse raw data; they do not identify which palette belongs to an image.
 
 **Compare 8 palettes** reads the current tile source and eight consecutive palettes in one inspection response. Select a thumbnail to use that palette and preview when adding the image block. Both compressed ROM tiles and uncompressed tiles are supported. No color recognition is implied; if the source is near the memory-region or ROM end, the comparison is rejected rather than reading beyond it. Preview pixels remain transient.
+
+## ROM pointers and offsets
+
+Enable **Tile address contains a ROM pointer** and/or the equivalent palette
+checkbox. That address becomes the location of one little-endian 32-bit pointer,
+not the location of pixel data. An optional signed byte offset is added after
+dereferencing. With the checkbox off, the offset is added to the direct address.
+Both pointer locations and their targets must be in ROM. This is one hop; it
+does not resolve a character ID, pointer chain or a game-specific portrait table.
+
+Studio first reads the pointers, then reads their words again together with the
+pixel/palette snapshot. A changed word, session, device or ROM invalidates the
+read. Source extents are checked against the actual ROM size. Export preserves
+the pointer descriptor; generated Lua resolves it through `mem.u32`, guards the
+ROM window, then invokes the existing graphics API. New image blocks bind the
+project to the observed CRC32 when it previously had only a game-code filter.
+
+## Compose raw sprite / portrait parts
+
+Select **Sprite parts · 1D tiles**. Set an output canvas (multiples of 8, at most
+256×256), then add parts. Each part has X/Y placement, width/height in
+8/16/32/64, first tile number, palette bank 0–15, and horizontal/vertical flips.
+Tile numbers count 32-byte 4bpp tiles from the resolved tile base; banks count
+32-byte palettes from the resolved palette base. A part's own tiles follow 1D
+row-major mapping. Earlier parts cover later parts; index zero is transparent.
+Negative placement clips at the output canvas. **Move forward** swaps a part
+with its predecessor. Raw 2D sheets can be described with row-sized parts when
+the whole composition fits the 32-part limit; arbitrary sheet layouts are not
+automatically inferred.
+
+The preview matches native `gfx.sprite`; exported Lua uses that same API.
+The player must provide `gfx.sprite` (as the current official/Plus source does).
+Native sprite composition does not accept LZ77, so this mode intentionally uses
+raw tiles. Compressed portraits that need multipart rearrangement are not an
+exportable source in this workflow. Use sequential mode for compressed sheets.
+Pointer and multipart modes disable consecutive browsing/palette comparison,
+which operate on direct sequential images. Reads still obey 64 KiB / 64 ranges;
+duplicate/overlapping part sources are merged before reading. Only descriptors
+are saved; decoded artwork is never added automatically to the project or ZIP.

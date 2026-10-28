@@ -11,12 +11,15 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
     "test": "vitest run",
+    "test:builder": "node scripts/test-builder-interop.mjs",
+    "test:ui": "playwright test",
     "check:source": "node scripts/check-game-neutral.mjs && node scripts/check-preview-independence.mjs",
     "verify": "npm run check:source && npm run check && npm test && npm run build",
     "source:zip": "node scripts/prepare-source.mjs",
     "notices:generate": "node scripts/dependency-notices.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@sveltejs/adapter-auto": "^8.0.0",
     "@sveltejs/kit": "^3.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

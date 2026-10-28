@@ -3,6 +3,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+	// DOM component tests need Svelte's browser lifecycle API; production keeps
+	// Vite's normal server resolution for SSR.
+	resolve: process.env.VITEST ? {conditions: ['browser']} : undefined,
+	server: {watch: {ignored: ['**/.studio-runtime/**']}},
 	plugins: [
 		sveltekit({
 			compilerOptions: {

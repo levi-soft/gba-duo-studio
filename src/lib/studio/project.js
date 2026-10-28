@@ -9,6 +9,7 @@ import { validateMemorySpecs } from './memory-values.js';
 import {computedLua,computedScriptPath,shouldGenerateScript} from './computed-values.js';
 import {graphicsLua} from './rom-graphics.js';
 import {templateCopy} from './template-copy.js';
+import {validateDataFields} from './data-catalog.js';
 import {PACK_LIMITS,safePackPath,boundedZipInput,readZipEntry,validatePreviewData} from './pack-safety.js';
 export { clone, walk, DEVICE_DENSITY } from './tree.js';
 
@@ -141,6 +142,7 @@ export function validate(project, forExport = false) {
   if(fileBytes>PACK_LIMITS.expanded)throw Error('Pack files exceed the size limit.');
   if(manifest.tickHz!==undefined&&(!Number.isInteger(manifest.tickHz)||manifest.tickHz<1||manifest.tickHz>30))throw Error('Update rate must be an integer between 1 and 30 Hz.');
   validateMemorySpecs(project.manifest.values??{});
+  validateDataFields(project.manifest.studioDataFields);
   if (![project.width, project.height].every((n) => Number.isInteger(n) && n >= 64 && n <= 8192)) throw new Error('Chiều rộng và cao phải là số nguyên từ 64 đến 8192 pixel.');
   if (project.editorGrid && (!Number.isInteger(project.editorGrid.size) || project.editorGrid.size < 1 || project.editorGrid.size > 512)) throw new Error('Bước lưới phải từ 1 đến 512 pixel.');
   const parsed = parseLayoutWithWarnings(JSON.stringify(project.layout));
@@ -148,6 +150,7 @@ export function validate(project, forExport = false) {
   validatePreviewData(project.data);
   if (forExport && !/^[a-z0-9-]{1,64}$/.test(project.manifest.id)) throw new Error('ID pack cần 1–64 ký tự: chữ thường không dấu, số hoặc dấu -.');
   if (forExport && !project.manifest.match?.gameCode?.length) throw new Error('Hãy nhập mã game ở mục Dự án trước khi xuất pack. CRC32 chỉ là bộ lọc bổ sung.');
+  if (forExport && manifest.script && !Object.hasOwn(project.files,manifest.script) && !shouldGenerateScript(project)) throw new Error('Declared Lua entry point is missing.');
   if(shouldGenerateScript(project))computedLua(project.manifest);
   if(forExport && project.manifest.script && !project.files[project.manifest.script] && !shouldGenerateScript(project))throw Error('The project is missing its declared Lua script. Import the complete pack.');
   if ((project.manifest.match?.gameCode ?? []).some((c) => !/^[A-Z0-9]{4}$/.test(c))) throw new Error('Mã game cần đúng 4 ký tự, ví dụ TEST.');
@@ -169,7 +172,7 @@ export async function exportPack(project) {
   const generatedLayout = JSON.stringify(compiled.layout, null, 2);
   zip.file('layout.json', generatedLayout);
   zip.file('style.css', compiled.css);
-  if(compiled.hasEditorMetadata) zip.file('studio-design.json',JSON.stringify({version:1,layout:project.layout,css:project.css,generatedLayout,generatedCss:compiled.css}));
+  zip.file('studio-design.json',JSON.stringify({version:1,layout:project.layout,css:project.css,generatedLayout,generatedCss:compiled.css,width:project.width,height:project.height,...(project.editorGrid?{editorGrid:project.editorGrid}:{})}));
   zip.file('preview-data.json', JSON.stringify(project.data, null, 2));
   return zip.generateAsync({ type: 'blob' });
 }
@@ -205,6 +208,12 @@ export async function importPack(file) {
       const design=JSON.parse(designText);
       if(design.version===1 && design.generatedLayout===rawLayout && design.generatedCss===project.css) {
         project.layout=ensureIds(parseLayoutWithWarnings(design.layout).root); project.css=design.css;
+        // Canvas/grid settings are editor-only. Restore them only when the
+        // authored design matches the actual runtime files, and ignore invalid
+        // optional values so old or externally edited packs remain openable.
+        if([design.width,design.height].every(n=>Number.isInteger(n)&&n>=64&&n<=8192)){project.width=design.width;project.height=design.height;}
+        const grid=design.editorGrid;
+        if(grid&&typeof grid==='object'&&!Array.isArray(grid)&&typeof grid.visible==='boolean'&&typeof grid.snap==='boolean'&&Number.isInteger(grid.size)&&grid.size>=1&&grid.size<=512)project.editorGrid={visible:grid.visible,snap:grid.snap,size:grid.size};
       }
     } catch { /* Invalid/stale editor metadata must not prevent opening the runtime pack. */ }
   }

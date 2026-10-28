@@ -10,6 +10,19 @@ it('folder sources preserve native metadata, binary assets, modules and authored
  expect(new TextDecoder().decode(entries['AGENTS.md'])).toContain('must not change');
  const descriptor=JSON.parse(new TextDecoder().decode(entries[SOURCE_META]));expect(descriptor.files).toContain('game.reader.lua');expect(descriptor.files).not.toContain('layout.json');
 });
+it('seeded source-folder properties preserve binary assets, Unicode data and Lua modules',()=>{
+ let seed=0x8a554422;const next=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return seed>>>0;};
+ for(let run=0;run<80;run++){
+  const p=fixture(),bytes=Uint8Array.from({length:next()%1024},()=>next()>>>24);
+  const lua=new TextEncoder().encode(`-- dữ liệu thử ${run}\nreturn {value=${next()%65536}}\n`);
+  p.files['assets/generated.bin']=btoa(String.fromCharCode(...bytes));
+  p.files['generated.lua']=btoa(String.fromCharCode(...lua));p.data={label:'Mẫu tiếng Việt '+run,value:next()%65536};
+  const out=serializeSourceProject(p),round=deserializeSourceProject(out);
+  expect([...out['assets/generated.bin']]).toEqual([...bytes]);expect([...out['generated.lua']]).toEqual([...lua]);
+  expect(round.files).toEqual(p.files);expect(round.data).toEqual(p.data);expect(round.manifest).toEqual(p.manifest);
+ }
+});
+
 it('editing a module is atomic and never changes the entry script',()=>{
  const p=fixture(),next=applySourceText(p,'game.reader.lua','return {hp=15}');
  expect(next.manifest.script).toBe('main.lua');expect(atob(next.files['game.reader.lua'])).toBe('return {hp=15}');expect(atob(p.files['game.reader.lua'])).toBe('return {hp=10}');

@@ -1,8 +1,9 @@
 /* Workspace chrome stays separate from exported companion styling. */
 [hidden]{display:none!important}
 .studio{min-width:0;height:100dvh}
+.startup-notice{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:#242a35;color:#dce6f3;font-size:16px}
 .workspacebar{display:flex;gap:16px;min-height:42px;height:auto;padding:5px 12px}
-.workspacebar nav{display:flex;gap:4px}.workspace-tools{display:flex;gap:3px}.save-indicator{margin-left:auto}
+.workspacebar nav{display:flex;gap:4px}.workspace-tools{display:flex;gap:3px;flex-wrap:wrap;min-width:0}.save-indicator{margin-left:auto}
 .studio:not([data-mode="2d"]) .left-dock,.studio:not([data-mode="2d"]) .inspector{display:none}
 .source-host{flex:1;min-height:0;display:flex}.source-host>section{flex:1}
 .bottom-dock{overflow:hidden;border-top-width:1px}.bottom-tabs{flex-shrink:0}

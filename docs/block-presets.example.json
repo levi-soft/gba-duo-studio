@@ -1,0 +1,34 @@
+{
+  "formatVersion": 1,
+  "presets": [
+    {
+      "id": "example-character-status",
+      "name": "Thẻ trạng thái nhân vật",
+      "config": {
+        "kind": "character",
+        "title": "Nhân vật",
+        "nameField": "character",
+        "levelField": "level",
+        "levelLabel": "Cấp độ",
+        "portraitMode": "none",
+        "hpEnabled": true,
+        "currentHpField": "hp",
+        "maximumHpField": "maxHp",
+        "barLabel": "HP"
+      }
+    },
+    {
+      "id": "example-resource-table",
+      "name": "Bảng tài nguyên với nhãn động",
+      "config": {
+        "kind": "stats",
+        "title": "Tài nguyên",
+        "rows": [
+          {"label": "", "labelField": "energyName", "field": "energy"},
+          {"label": "Dung lượng", "field": "capacity"},
+          {"label": "Tiền", "field": "credits"}
+        ]
+      }
+    }
+  ]
+}

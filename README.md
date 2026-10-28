@@ -5,8 +5,30 @@ A local visual editor for companion interfaces: build a scene, edit properties, 
 Design, Code and Test are the main workspaces. Use a plain source folder with Codex,
 then continue visually in Studio. See [the workspace workflow](docs/STUDIO-OVERHAUL.md).
 
+The **2026-10-28 authoring update** keeps version **0.3.0-beta.1** and adds guided
+editing, reusable data blocks, image/font replacement and shared Builder checks.
+See [what changed](CHANGELOG.md) and the [verified trial scope](docs/TRIAL-READINESS.vi.md).
+
 Development builds also offer [live ROM/graphics inspection](docs/ROM-GRAPHICS.md)
 and image blocks that load art from the player's ROM instead of bundled PNGs.
+
+Use **Edit a companion** to open an existing ZIP, find a label/component, change
+static text or inline colors, and export a copy while preserving its reader and
+assets. The guide is available in English and Vietnamese. See the
+[Vietnamese editing walkthrough](docs/EDIT-COMPANION.vi.md).
+
+**Connect data** adds text, a current/maximum bar or a simple repeated list
+from the existing companion's named fields. It can also reconnect existing
+text/bars without rewriting their reader. See [the data-binding guide](docs/CONNECT-DATA.vi.md).
+
+**Check pack** reports missing entry scripts/static images, unresolved sample
+bindings and incomplete export settings, with links to the component or panel
+to fix. See [export checks and their limits](docs/PACK-CHECKS.vi.md).
+
+**Function blocks** inserts a character card or stat table using existing named
+data fields, with editable labels and optional portrait/level/value bar. The
+blocks inherit the project theme and preserve its reader. See the
+[block library guide](docs/FUNCTION-BLOCKS.vi.md).
 
 Maintained by [levi-soft](https://github.com/levi-soft). Studio creates packs for [GBA Duo by khumam](https://github.com/khumam/gba-duo); thank you to its author and contributors for the original companion format and emulator. Studio is a separate community authoring tool, not the official emulator or simulator.
 
@@ -55,12 +77,19 @@ English is the default documentation and interface language. [README tiáº¿ng Viá
 
 ## Development
 
+The optional `npm run test:builder` gate checks save/package/reopen/edit cycles
+against a sibling Companion Builder checkout. It uses synthetic data and keeps
+both repositories independently buildable. See [Builder roundtrip checks](docs/BUILDER-ROUNDTRIP.md)
+for setup, preserved editor settings and the boundary with device acceptance.
+
 ```sh
 npm run verify
 npm run source:zip
 ```
 
-Verification runs strict type checks, source-boundary checks, tests and a production build. The source ZIP is written to `.studio-runtime/distribution/` and excludes private projects, device captures, Git history and installed dependencies. CI is configured for Windows and Linux with Node 22 and 24; it has not run on GitHub until this source is pushed. Local browser/device results are recorded separately from CI.
+Verification runs strict type checks, source-boundary checks, tests and a production build. The optional source ZIP is written to `.studio-runtime/distribution/` and excludes private projects, device captures, Git history and installed dependencies. CI runs on Windows and Linux with Node 22 and 24. Local browser/device results are recorded separately from CI; the optional interop/browser gates have their own setup instructions.
+
+The optional `npm run test:ui` gate exercises the real Vietnamese authoring flow in desktop/phone browser viewports. See [browser setup and evidence](docs/AUTHOR-FLOW-TESTS.vi.md) and [local trial readiness](docs/TRIAL-READINESS.vi.md). It uses isolated browser contexts and synthetic pack/ROM data; Android runtime acceptance is separate.
 
 The active preview implementation is in `src/lib/preview/`. See [workspace boundaries and Inspector organization](docs/WORKSPACE.md).
 

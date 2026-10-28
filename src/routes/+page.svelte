@@ -16,11 +16,22 @@
   import TabFont from '../lib/studio/TabFont.svelte';
   import SkinEditor from '../lib/studio/SkinEditor.svelte';
   import TemplateLibrary from '../lib/studio/TemplateLibrary.svelte';
+  import CompanionGuide from '../lib/studio/CompanionGuide.svelte';
+  import {applyGuideText,applyGuideColor} from '../lib/studio/companion-guide.js';
+  import {applyTextParts,textPartsError,type TextPartsRequest} from '../lib/studio/text-parts.js';
+  import DataBindingWizard from '../lib/studio/DataBindingWizard.svelte';
+  import {applyDataWidget,type DataWidgetRequest} from '../lib/studio/data-widgets.js';
+  import PackReadiness from '../lib/studio/PackReadiness.svelte';
+  import {packReadiness,packFixDestination,issueText,type PackIssue} from '../lib/studio/pack-readiness.js';
+  import FunctionBlockLibrary from '../lib/studio/FunctionBlockLibrary.svelte';
+  import {insertFunctionBlock,type FunctionBlockRequest} from '../lib/studio/function-block-authoring.js';
   import DataEditor from '../lib/studio/DataEditor.svelte';
   import BindingRules from '../lib/studio/BindingRules.svelte';
   import PulseRules from '../lib/studio/PulseRules.svelte';
   import { assetImportPath } from '../lib/studio/assets.js';
   import AssetBrowser from '../lib/studio/AssetBrowser.svelte';
+  import AssetEditDialog from '../lib/studio/AssetEditDialog.svelte';
+  import {applyAssetEdit,assetEditError,type AssetEditRequest} from '../lib/studio/asset-editing.js';
   import { fontCatalog, applyNodeFont, fontValue, setTabLabelFont, tabLabelFont } from '../lib/studio/fonts.js';
   import StyleInspector from '../lib/studio/StyleInspector.svelte';
   import { setNodeStyles, cloneStyledTree } from '../lib/studio/style-model.js';
@@ -83,6 +94,46 @@
   let error = $state(''), saved = $state($uiText("Chưa lưu")), hydrated = $state(false);
   let history = $state<Project[]>([]), future = $state<Project[]>([]), dirty = $state(false), sourceDirty=$state(false);
   let showNew = $state(false), showSettings = $state(false);
+  let showGuide=$state(false),guideImport=false;
+  let assetTarget=$state(''),showAssetEdit=$state(false),assetReturnToGuide=false,guideResumeId=$state('');
+  let showDataBinding=$state(false),dataTarget=$state('');
+  let showReadiness=$state(false),readinessError=$state('');
+  let sourceTools:{openSource:(path:string)=>void}|undefined;
+  let showFunctionBlocks=$state(false);
+  function applyFunctionBlock(request:FunctionBlockRequest){
+    if(sourceDirty)return copy('Apply or discard the Code draft first.','Áp dụng hoặc bỏ bản nháp Mã nguồn trước.');
+    let id='';edit(p=>{id=insertFunctionBlock(p,request,$locale);},copy('Function block inserted','Đã chèn khối chức năng'));
+    if(!id||editorError)return editorError||'Could not insert the block.';
+    selected=id;mode='2d';mobileDock='canvas';collapsed=revealAncestors(walk(project.layout),id,collapsed);requestAnimationFrame(fitCanvas);return '';
+  }
+  function fixPackIssue(issue:PackIssue){
+    showReadiness=false;const destination=packFixDestination(issue);
+    log=[issueText(issue,$locale),issue.nodeId,issue.property,issue.field,issue.detail].filter(Boolean).join(' · ');
+    if(destination.mode==='2d'){guideSelect(destination.nodeId);inspectorTab=destination.inspector;return;}
+    if(destination.mode==='code'){if(destination.path)sourceTools?.openSource(destination.path);mode='code';mobileDock='canvas';}
+    else if(destination.mode==='data'){mode='data';mobileDock='canvas';}
+    else showSettings=true;
+  }
+  function openDataBinding(id=selected){dataTarget=id;showGuide=false;showDataBinding=true;}
+  function applyDataBinding(request:DataWidgetRequest){
+    if(sourceDirty)return copy('Apply or discard the Code draft first.','Áp dụng hoặc bỏ bản nháp Mã nguồn trước.');
+    let id='';edit(p=>{id=applyDataWidget(p,request,$locale);},copy('Companion data connected','Đã gắn dữ liệu companion'));
+    if(!id||editorError)return editorError||'Could not connect the field.';
+    selected=id;mode='2d';mobileDock='canvas';collapsed=revealAncestors(walk(project.layout),id,collapsed);requestAnimationFrame(fitCanvas);return '';
+  }
+  function guideSelect(id:string){selected=id;showGuide=false;mode='2d';mobileDock='inspector';leftTab='scene';collapsed=revealAncestors(walk(project.layout),id,collapsed);}
+  function guideText(id:string,text:string){if(sourceDirty)return;edit(p=>applyGuideText(p,id,text));}
+  function guideWording(id:string,request:TextPartsRequest){
+    if(sourceDirty)return copy('Apply or discard the Code draft first.','Áp dụng hoặc bỏ bản nháp Mã nguồn trước.');
+    edit(p=>{try{applyTextParts(p,id,request);}catch(error){throw Error(textPartsError(error,$locale));}},copy('Wording updated; data values kept.','Đã sửa phần chữ, giữ nguyên giá trị dữ liệu.'));return editorError;
+  }
+  function guideColor(id:string,key:string,value:string){if(sourceDirty)return;edit(p=>applyGuideColor(p,id,key,value));}
+  function openAssetEdit(id=selected,fromGuide=false){assetTarget=id;assetReturnToGuide=fromGuide;guideResumeId=fromGuide?id:'';showGuide=false;showAssetEdit=true;}
+  function closeAssetEdit(){showAssetEdit=false;if(assetReturnToGuide)showGuide=true;}
+  function applyAsset(request:AssetEditRequest){
+    if(sourceDirty)return copy('Apply or discard the Code draft first.','Áp dụng hoặc bỏ bản nháp Mã nguồn trước.');
+    edit(p=>{try{applyAssetEdit(p,request);}catch(error){throw Error(assetEditError(error,$locale));}},copy('Asset applied to the chosen component.','Đã áp dụng tài nguyên cho thành phần đã chọn.'));return editorError;
+  }
   let inspectorTab = $state('content');
   let importInput:HTMLInputElement, assetInput:HTMLInputElement, projectInput:HTMLInputElement;
   let editorError = $state('');
@@ -225,18 +276,25 @@
   function redo() { if (!future.length) return; history = rememberProject(history,project); project = future.at(-1)!; future = future.slice(0, -1);dirty=true; }
   function keydown(e:KeyboardEvent) {
     if (e.target instanceof Element && e.target.closest('input,textarea,select,[contenteditable]')) return;
+    if((showGuide||showDataBinding||showReadiness||showFunctionBlocks||showAssetEdit)&&e.key==='Delete')return;
     if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); folderTools?.saveWorkspace(); }
     if (e.key === 'Delete' && mode === '2d') erase();
   }
   function download(blob:Blob,name:string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
   function saveProject() { download(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), project.manifest.id + '.gbastudio.json'); if(!folderTools?.connected())dirty = false; log = $uiText("Đã tải file dự án, gồm giao diện, dữ liệu mẫu và tài nguyên."); }
-  async function packExport() { try { const blob = await exportPack(project); download(blob, project.manifest.id + '.zip'); log = $locale==='vi'?'Đã xuất ZIP. Nhập và gán gói trong GBA Duo để kiểm tra trên thiết bị.':'ZIP exported. Import and assign the pack in GBA Duo to test it on your device.'; dock = 'output'; } catch (e) { editorError = errorMessage(e); showSettings = true; } }
+  async function packExport() {readinessError='';if(packReadiness(project,sourceDirty).some(issue=>issue.level!=='info')){showReadiness=true;return;}await exportReadyPack();}
+  async function exportReadyPack(){
+    if(packReadiness(project,sourceDirty).some(issue=>issue.level==='error')){showReadiness=true;return;}
+    try{const blob=await exportPack(project);download(blob,project.manifest.id+'.zip');showReadiness=false;log=copy('ZIP exported. Import and assign the copy on your device.','Đã xuất ZIP. Nhập và gán bản sao trên thiết bị để kiểm tra.');dock='output';}
+    catch(e){readinessError=errorMessage(e);showReadiness=true;}
+  }
   async function openFile(e:InputEvent,pack = false) {
     const input=e.currentTarget;
     const file = input.files?.[0]; if (!file) return;
     try { const p = pack || file.name.toLowerCase().endsWith('.zip') ? await importPack(file) : migrateDefaultCanvasPadding(JSON.parse(await file.text())); validate(p);folderTools?.clearWorkspace(); history = rememberProject(history,project); future = []; project = p; selected = p.layout.id; mode='2d'; leftTab='scene'; sceneSearch=''; assetSearch=''; collapsed={}; fileTab='assets'; dirty = false; log = $uiText("Đã mở {0}. Bản trước vẫn có thể khôi phục bằng Hoàn tác.", file.name); editorError = ''; requestAnimationFrame(fitCanvas); } catch (e) { editorError = errorMessage(e); }
     input.value = '';
+    if(guideImport){guideImport=false;showGuide=true;}
   }
   async function addAssetFiles(files:File[]) {
     try {
@@ -273,11 +331,12 @@
 
 <svelte:head><title>{$uiText("GBA Duo Studio — Thiết kế companion")}</title><meta name="description" content={$uiText("Studio trực quan để thiết kế companion pack cho các game GBA, GBC và GB.")} /></svelte:head>
 <svelte:window onkeydown={keydown} />
-<div class="studio" data-mode={mode} data-mobile-dock={mobileDock}>
+{#if !hydrated}<div class="startup-notice" role="status">{copy('Opening Studio…','Đang mở Studio…')}</div>{/if}
+<div class="studio" data-mode={mode} data-mobile-dock={mobileDock} aria-busy={!hydrated} inert={!hydrated}>
   <header class="menubar">
     <span class="brand-icon">◈</span><strong>GBA Duo Studio</strong>
-    <select class="language-picker" aria-label="Studio language" value={$locale} onchange={(event)=>setLanguage(event.currentTarget.value)}><option value="en">English</option><option value="vi">Tiếng Việt</option></select>
-    <button onclick={() => showSettings = true}>{$uiText("Dự án")}</button><button onclick={() => showNew = true}>{$uiText("Mới")}</button><button onclick={() => projectInput.click()}>{$uiText("Mở dự án")}</button><button onclick={saveProject}>{$uiText("Lưu dự án")}</button><button onclick={() => showTemplates = true}>{$uiText("Thư viện mẫu")}</button>
+    <select class="language-picker" aria-label="Studio language" disabled={!hydrated} value={$locale} onchange={(event)=>setLanguage(event.currentTarget.value)}><option value="en">English</option><option value="vi">Tiếng Việt</option></select>
+    <button onclick={()=>showGuide=true}>{copy('Edit a companion','Sửa companion')}</button><button onclick={() => showSettings = true}>{$uiText("Dự án")}</button><button onclick={() => showNew = true}>{$uiText("Mới")}</button><button onclick={() => projectInput.click()}>{$uiText("Mở dự án")}</button><button onclick={saveProject}>{$uiText("Lưu dự án")}</button><button onclick={() => showTemplates = true}>{$uiText("Thư viện mẫu")}</button>
     <span class="project-title">{project.manifest.name}{dirty ? ' (*)' : ''}</span>
     <button class="primary compact" onclick={packExport}>{$uiText("Xuất pack ZIP ↗")}</button>
   </header>
@@ -287,7 +346,7 @@
       <button class:chosen={mode==='code'} onclick={()=>mode='code'}>⌘ {copy('Code','Mã nguồn')}</button>
       <button class:chosen={mode==='preview'} onclick={()=>{mode='preview';requestAnimationFrame(fitCanvas);}}>▶ {copy('Test','Kiểm thử')}</button>
     </nav>
-    <div class="workspace-tools"><button class:chosen={mode==='data'} onclick={openData}>{copy('Data','Dữ liệu')}</button><button class:chosen={mode==='ram'} onclick={()=>mode='ram'}>{copy('Device','Thiết bị')}</button></div>
+    <div class="workspace-tools"><button onclick={()=>showFunctionBlocks=true}>{copy('Function blocks','Khối chức năng')}</button><button onclick={()=>openDataBinding()}>{copy('Connect data','Gắn dữ liệu')}</button><button disabled={!selected||sourceDirty} onclick={()=>openAssetEdit()}>{copy('Image / font','Ảnh / font')}</button><button onclick={()=>{readinessError='';showReadiness=true;}}>{copy('Check pack','Kiểm tra gói')}</button><button class:chosen={mode==='data'} onclick={openData}>{copy('Data','Dữ liệu')}</button><button class:chosen={mode==='ram'} onclick={()=>mode='ram'}>{copy('Device','Thiết bị')}</button></div>
     <span class="save-indicator">{dirty?'● ':'✓ '}{copy(dirty?'Unsaved edits':'Browser draft','Thay đổi '+(dirty?'chưa lưu':'đã lưu trên trình duyệt'))} · {$uiText(saved)}</span>
   </div>
   <FolderWorkspace bind:this={folderTools} {project} {dirty} {sourceDirty} onreplace={replaceDocument} onsaved={(saved)=>{if(project===saved)dirty=false;log=copy('Project folder saved','Đã lưu thư mục dự án');}} />
@@ -321,7 +380,7 @@
 
     </aside>
     <main class="center">
-      <div class="source-host" hidden={mode!=='code'}><SourceWorkspace {project} onchange={applySource} ondirty={value=>sourceDirty=value}/></div>
+      <div class="source-host" hidden={mode!=='code'}><SourceWorkspace bind:this={sourceTools} {project} onchange={applySource} ondirty={value=>sourceDirty=value}/></div>
       <div class="scene-tab" hidden={mode==='code'}>{#if mainPages}<label class="page-switcher">{$uiText("Trang")}<select aria-label={$uiText("Trang đang thiết kế")} value={mainPages.initial} onchange={(e) => { const name = e.currentTarget.value; previewPage(name); const child=walk(project.layout).find((r) => r.node.type === "pages")?.node.pages?.find((p) => p.name === name)?.child;if(child)selected=child.id; }}>{#each mainPages.pages as page}<option value={page.name}>{page.name}</option>{/each}</select></label>{/if}<span>▧ {project.manifest.name}</span><small>{project.manifest.match?.gameCode?.join(', ') || $uiText("Chưa gắn game")}</small></div>
       <div class="canvas-toolbar" hidden={mode==='code'||mode==='data'||mode==='ram'}><button title={$uiText("Chọn thành phần")} class:chosen={mode === '2d'} onclick={() => mode = '2d'}>↖</button><button title={$uiText("Hoàn tác Ctrl+Z")} disabled={!history.length} onclick={undo}>↶</button><button title={$uiText("Làm lại Ctrl+Shift+Z")} disabled={!future.length} onclick={redo}>↷</button><span class="divider"></span><label class="zoom"><input aria-label={$uiText("Thu phóng")} type="range" min="0.05" max="1.5" step="0.01" bind:value={zoom} />{Math.round(zoom * 100)}%</label><button title={$uiText("Vừa vùng thiết kế")} onclick={fitCanvas}>{$uiText("Vừa khung")}</button><button class:chosen={grid.visible} aria-pressed={grid.visible} title={$uiText("Hiện lưới trên bàn thiết kế")} onclick={() => setGrid("visible", !grid.visible)}>{$uiText("▦ Lưới")}</button><button class:chosen={grid.snap} aria-pressed={grid.snap} title={$uiText("Bắt dính theo lưới; giữ Alt để tạm bỏ")} onclick={() => setGrid("snap", !grid.snap)}>{$uiText("⌗ Bắt dính")}</button><label class="grid-step">{$uiText("Bước (px)")}<input aria-label={$uiText("Bước lưới (pixel)")} type="number" min="1" max="512" value={grid.size} onchange={(e) => setGrid("size", Number(e.currentTarget.value))} /></label><span class="spacer"></span><button title={$uiText("Đổi kích thước màn hình")} onclick={() => showSettings = true}>{project.width} {$uiText("×")} {project.height} ⚙</button></div>
       {#if mode!=='code'}<LiveMemoryBar manifest={project.manifest} projectId={project.layout.id} enabled={liveEnabled} onenabled={(value)=>liveEnabled=value} ondata={(value)=>liveData=value} onstatus={(value)=>{liveStatus=value;if(value.info)observeGraphicsIdentity(value.info);}} />{/if}
@@ -409,7 +468,7 @@
   </div>
   <footer><span>{$uiText("◈ GBA Duo Studio · Cục bộ")}</span><span>{entries.length} {$uiText("nút ·")} {assetPaths.length} {$uiText("tài nguyên")}</span><span>{$uiText("Thiết kế dùng chung cho nhiều game · dữ liệu RAM theo từng game")}</span></footer>
 </div>
-<input bind:this={importInput} hidden type="file" accept=".zip" onchange={(e) => openFile(e, true)} />
+<input bind:this={importInput} hidden type="file" accept=".zip" onchange={(e) => openFile(e, true)} oncancel={()=>{if(guideImport){guideImport=false;showGuide=true;}}} />
 <input bind:this={projectInput} hidden type="file" accept=".json,.zip,application/json,application/zip,application/x-zip-compressed" onchange={(e) => openFile(e)} />
 <input bind:this={assetInput} hidden type="file" accept="image/*,.ttf,.otf,.woff,.woff2" multiple onchange={addAssets} />
 {#if showNew || showSettings}
@@ -425,4 +484,9 @@
 
 
 {#if showTemplates}<TemplateLibrary onopen={openTemplate} onclose={() => showTemplates = false} />{/if}
+{#if showGuide}<CompanionGuide {project} {sourceDirty} initialId={guideResumeId} onclose={()=>showGuide=false} onopen={()=>{showGuide=false;guideImport=true;importInput.click();}} onselect={guideSelect} ontext={guideText} onwording={guideWording} oncolor={guideColor} onassets={id=>openAssetEdit(id,true)} onbind={openDataBinding} ontest={()=>{showGuide=false;mode='preview';requestAnimationFrame(fitCanvas);}} onsave={saveProject} onexport={()=>{showGuide=false;void packExport();}} />{/if}
+{#if showAssetEdit}<AssetEditDialog {project} {sourceDirty} nodeId={assetTarget} onclose={closeAssetEdit} onapply={applyAsset} />{/if}
+{#if showDataBinding}<DataBindingWizard {project} {sourceDirty} targetId={dataTarget} liveData={liveEnabled?liveData:null} liveState={liveStatus.kind} onapply={applyDataBinding} onclose={()=>showDataBinding=false} />{/if}
+{#if showReadiness}<PackReadiness {project} {sourceDirty} exportError={readinessError} onclose={()=>showReadiness=false} onfix={fixPackIssue} onexport={()=>void exportReadyPack()} />{/if}
+{#if showFunctionBlocks}<FunctionBlockLibrary {project} {sourceDirty} targetId={selected} liveData={liveEnabled?liveData:null} liveState={liveStatus.kind} onapply={applyFunctionBlock} onclose={()=>showFunctionBlocks=false} />{/if}
 {#if fileView}<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label={$uiText("Tệp tham khảo")} tabindex="-1"><div class="modal-title"><h2>{fileView.path}</h2><button onclick={() => fileView = null}>✕</button></div><p class="muted">{$uiText("Tệp gốc được giữ khi xuất. Xem mã tham khảo; studio không thực thi Lua.")}</p><pre class="source-view">{fileView.text}</pre></div></div>{/if}

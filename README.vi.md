@@ -1,5 +1,10 @@
 # GBA Duo Studio
 
+Đợt cập nhật công cụ tạo companion ngày **28/10/2026** giữ phiên bản
+**0.3.0-beta.1**: sửa gói có hướng dẫn, khối dữ liệu tái sử dụng, thay ảnh/font
+và kiểm tra chung với Builder. Xem [ghi chú thay đổi](CHANGELOG.md) và
+[phạm vi đã kiểm thử](docs/TRIAL-READINESS.vi.md).
+
 Studio tập trung vào Design, Code và Test. Codex sửa tệp trong thư mục dự án,
 Studio đọc lại để chỉnh tiếp bằng giao diện.
 
@@ -57,6 +62,10 @@ npm run source:zip
 ```
 
 Lệnh thứ hai tạo ZIP mã nguồn trong `.studio-runtime/distribution/`, không chứa lịch sử Git, dự án private, dữ liệu thiết bị hoặc `node_modules`.
+
+Có thể chạy thêm `npm run test:ui` để kiểm tra trọn luồng bằng trình duyệt thật.
+Xem [cách chạy và giới hạn](docs/AUTHOR-FLOW-TESTS.vi.md) và
+[trạng thái bản dùng thử cục bộ](docs/TRIAL-READINESS.vi.md).
 
 Giấy phép: GPL-3.0-only. Xem [NOTICE.md](NOTICE.md) để biết nguồn CSS tương thích và thư viện. Giấy phép Studio không thay đổi quyền sở hữu asset hay companion do bạn tạo.
 

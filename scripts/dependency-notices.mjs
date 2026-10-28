@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-const visited=new Set(),sections=[],roots=['jszip','svelte','@sveltejs/kit','vite','wasmoon'];
+const visited=new Set(),sections=[],roots=['jszip','svelte','@sveltejs/kit','vite','wasmoon','@playwright/test'];
 function visit(name,from=process.cwd()){
  let directory=from,manifestPath;
  while(directory!==path.dirname(directory)){
